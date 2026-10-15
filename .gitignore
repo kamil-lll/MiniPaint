@@ -1,0 +1,4 @@
+# Derleme artiklari ve yerel ayarlar (repoya girmez)
+kaynak.o
+*.exe
+minipaint.ini
