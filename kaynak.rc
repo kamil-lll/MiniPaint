@@ -1,0 +1,6 @@
+// MiniPaint kaynak dosyasi: uygulama ikonu + gomulu kaynak kodu
+#include <windows.h>
+
+1 ICON "ikon.ico"
+
+KAYNAK RCDATA "paint.cpp"
