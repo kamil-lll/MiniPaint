@@ -1,5 +1,5 @@
 ﻿// ============================================================
-//  MiniPaint v2.1 - Tamamen sifirdan yazilmis ozel cizim programi
+//  MiniPaint v2.2 - Tamamen sifirdan yazilmis ozel cizim programi
 //  Dil: C++ (saf Win32 API + WIC, harici kutuphane YOK)
 //  Bu kodun tamami bu proje icin ozgun olarak yazilmistir.
 // ============================================================
@@ -24,7 +24,7 @@
 // ------------------------------------------------------------
 //  Sabitler
 // ------------------------------------------------------------
-static const int TOOLBAR_H   = 115;  // ust arac cubugu yuksekligi (uc satir)
+static const int TOOLBAR_H   = 152;  // ust arac cubugu yuksekligi (dort satir)
 static const int STATUSBAR_H = 24;   // alt durum cubugu yuksekligi
 static const int PALETTE_CNT = 60;   // hazir renk sayisi (5 satir x 12 renk)
 static const int GECMIS_MAX  = 32;   // geri alma derinligi
@@ -39,6 +39,7 @@ enum Arac {
     ARAC_SULUBOYA, ARAC_ISLAK, ARAC_YAGLIFIRCA,
     ARAC_KARAKALEM, ARAC_KALIGRAFI, ARAC_SERIT,
     ARAC_NEON, ARAC_GOLGE, ARAC_DITHER,
+    ARAC_GPEN, ARAC_TON, ARAC_HIZCIZGI, ARAC_BALON, ARAC_PANEL,   // manga/arac seti
     ARAC_SAYISI
 };
 
@@ -170,6 +171,8 @@ enum MetinId {
     M_ARAC_NEON, M_ARAC_GOLGE,
     M_MENU_REFERANS, M_REF_YUKLE, M_REF_GOSTER, M_REF_KALDIR, M_MENU_STABIL,
     M_ARAC_DITHER, M_PIKSEL_MUK, M_MENU_PALET_PIKSEL,
+    M_ARAC_GPEN, M_ARAC_TON, M_ARAC_HIZCIZGI, M_ARAC_BALON, M_ARAC_PANEL,
+    M_HATA_KAYDET,
     M_METIN_SAYISI
 };
 
@@ -192,8 +195,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Arac: %s   Renk: #%02X%02X%02X   Kalinlik: %d   Yaklasim: %d%%   Konum: %d,%d   [Ctrl+S Kaydet, Ctrl+Z Geri Al]",
   L"Hata", L"Dosya acilamadi veya format desteklenmiyor.",
   L"Kaydedilmemis degisiklikler var. Cikmadan once kaydetmek ister misiniz?",
-  L"MiniPaint v2.1\n\nTamamen sifirdan, saf C++ ve Win32 API ile\nozgun olarak yazilmis bir cizim programidir.\nHarici kutuphane icermez.\n\n"
-  L"31 arac, 32 adim geri alma, 20 efekt, yaklasim, simetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO destegi ve 29 dil icerir.",
+  L"MiniPaint v2.2\n\nTamamen sifirdan, saf C++ ve Win32 API ile\nozgun olarak yazilmis bir cizim programidir.\nHarici kutuphane icermez.\n\n"
+  L"36 arac, 32 adim geri alma, 20 efekt, yaklasim, simetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO destegi ve 29 dil icerir.",
   L"Resim Dosyalari (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"Tamam", L"Iptal", L"Genislik:", L"Yukseklik:",
   L"Ozel Renk Sec", L"Tuval Boyutu", L"Dolu", L"Yuvarlak Uc", L"Kare Uc",
@@ -214,7 +217,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Simetri: firca vuruslarini dikey eksende aynalar.\r\n\r\nKISAYOLLAR\r\n"
   L"Ctrl+S kaydet, Ctrl+O ac, Ctrl+N yeni, Ctrl+Z geri al, Ctrl+Y yinele, Ctrl+C kopyala, Ctrl+V yapistir.\r\n\r\n"
   L"EFEKTLER\r\nEfektler menusunde gri tonlama, negatif, sepya, bulaniklik, keskinlik, kabartma, yagli boya ve dahasi olmak uzere 20 filtre bulunur.\r\n"
-  L"Dosyalar 24-bit BMP, PNG veya JPEG olarak kaydedilir.\r\n\r\nEFEKT REFERANSI\r\n"
+  L"Dosyalar BMP, PNG, JPEG, GIF, TIFF veya ICO olarak kaydedilir.\r\n\r\nEFEKT REFERANSI\r\n"
   L"Gri Tonlama: renkleri parlakliga donusturur. Negatif: tum renkleri tersine cevirir.\r\n"
   L"Sepya: eski fotograf gorunumu verir. Bulaniklastir: 3x3 kutu bulanikligi uygular.\r\n"
   L"Keskinlestir: kenarlari belirginlestirir. Piksellestir: goruntuyu 8x8 bloklara indirger.\r\n"
@@ -229,7 +232,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"S: Ekran neden titremiyor? C: Tum cizim cift tampon teknigiyle yapilir.\r\n",
   L"Kaynak &Kodu", L"Kaynak Kodu - MiniPaint",
   L"Sulu Boya", L"Islak", L"Yagli", L"Karakalem", L"Kaligrafi", L"Serit",
-  L"Neon", L"Golge", L"Referans", L"Yukle...", L"Goster/Gizle", L"Kaldir", L"Firca Sabitleme", L"Dither", L"Mükemmel Piksel", L"Piksel Paleti" },
+  L"Neon", L"Golge", L"Referans", L"Yukle...", L"Goster/Gizle", L"Kaldir", L"Firca Sabitleme", L"Dither", L"Mükemmel Piksel", L"Piksel Paleti", L"G-Pen", L"Ton", L"Hız", L"Balon", L"Panel",
+  L"Dosya kaydedilemedi. Konum salt okunur olabilir veya disk dolu olabilir." },
 // ---- English ----
 { L"Pencil", L"Line", L"Box", L"Ellipse", L"Fill", L"Eraser", L"Pick",
   L"Spray", L"Triangle", L"Rounded", L"Star", L"Text", L"Select",
@@ -248,8 +252,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Tool: %s   Color: #%02X%02X%02X   Size: %d   Zoom: %d%%   Pos: %d,%d   [Ctrl+S Save, Ctrl+Z Undo]",
   L"Error", L"Could not open file, or the format is not supported.",
   L"There are unsaved changes. Do you want to save before exiting?",
-  L"MiniPaint v2.1\n\nA paint program written entirely from scratch\nin pure C++ and the Win32 API.\nNo external libraries.\n\n"
-  L"Features 31 tools, 32-step undo, 20 effects, zoom, symmetry,\nBMP/PNG/JPEG/GIF/TIFF/ICO support and 29 languages.",
+  L"MiniPaint v2.2\n\nA paint program written entirely from scratch\nin pure C++ and the Win32 API.\nNo external libraries.\n\n"
+  L"Features 36 tools, 32-step undo, 20 effects, zoom, symmetry,\nBMP/PNG/JPEG/GIF/TIFF/ICO support and 29 languages.",
   L"Image Files (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Cancel", L"Width:", L"Height:",
   L"Pick Custom Color", L"Canvas Size", L"Filled", L"Round Tip", L"Square Tip",
@@ -270,7 +274,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symmetry mirrors your strokes across the vertical axis.\r\n\r\nSHORTCUTS\r\n"
   L"Ctrl+S save, Ctrl+O open, Ctrl+N new, Ctrl+Z undo, Ctrl+Y redo, Ctrl+C copy, Ctrl+V paste.\r\n\r\n"
   L"EFFECTS\r\nThe Effects menu offers 20 filters including blur, sharpen, oil paint, emboss and more.\r\n"
-  L"Files can be saved as 24-bit BMP, PNG or JPEG.\r\n\r\nEFFECT REFERENCE\r\n"
+  L"Files can be saved as BMP, PNG, JPEG, GIF, TIFF or ICO.\r\n\r\nEFFECT REFERENCE\r\n"
   L"Grayscale: converts colors to luminance. Invert: reverses all colors.\r\n"
   L"Sepia: gives an old-photo look. Blur: applies a 3x3 box blur.\r\n"
   L"Sharpen: emphasizes edges. Pixelate: reduces the image to 8x8 blocks.\r\n"
@@ -285,7 +289,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Q: Why does the canvas not flicker? A: All drawing uses double buffering.\r\n",
   L"&Source Code", L"Source Code - MiniPaint",
   L"W.Color", L"Wet Mix", L"Oil", L"Pencil", L"Callig", L"Ribbon",
-  L"Neon", L"Shade", L"Reference", L"Load...", L"Show/Hide", L"Remove", L"Brush Stabilizer", L"Dither", L"Pixel Perfect", L"Pixel Palette" },
+  L"Neon", L"Shade", L"Reference", L"Load...", L"Show/Hide", L"Remove", L"Brush Stabilizer", L"Dither", L"Pixel Perfect", L"Pixel Palette", L"G-Pen", L"Tone", L"Speed", L"Bubble", L"Panel",
+  L"Could not save the file. The location may be read-only or the disk is full." },
 // ---- Deutsch ----
 { L"Stift", L"Linie", L"Rechteck", L"Ellipse", L"Füllen", L"Radierer", L"Pipette",
   L"Spray", L"Dreieck", L"Abgerundet", L"Stern", L"Text", L"Auswahl",
@@ -304,8 +309,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Werkzeug: %s   Farbe: #%02X%02X%02X   Größe: %d   Zoom: %d%%   Position: %d,%d   [Strg+S Speichern, Strg+Z Rückgängig]",
   L"Fehler", L"Datei konnte nicht geöffnet werden oder Format wird nicht unterstützt.",
   L"Es gibt ungespeicherte Änderungen. Möchten Sie vor dem Beenden speichern?",
-  L"MiniPaint v2.1\n\nEin Malprogramm, komplett von Grund auf\nin reinem C++ und der Win32-API geschrieben.\nKeine externen Bibliotheken.\n\n"
-  L"31 Werkzeuge, 32-stufiges Rückgängig, 20 Effekte, Zoom, Symmetrie,\nBMP/PNG/JPEG/GIF/TIFF/ICO-Unterstützung und 29 Sprachen.",
+  L"MiniPaint v2.2\n\nEin Malprogramm, komplett von Grund auf\nin reinem C++ und der Win32-API geschrieben.\nKeine externen Bibliotheken.\n\n"
+  L"36 Werkzeuge, 32-stufiges Rückgängig, 20 Effekte, Zoom, Symmetrie,\nBMP/PNG/JPEG/GIF/TIFF/ICO-Unterstützung und 29 Sprachen.",
   L"Bilddateien (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Abbrechen", L"Breite:", L"Höhe:",
   L"Eigene Farbe wählen", L"Leinwandgröße", L"Gefüllt", L"Runde Spitze", L"Eckige Spitze",
@@ -326,7 +331,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symmetrie spiegelt Striche an der vertikalen Achse.\r\n\r\nTASTENKÜRZEL\r\n"
   L"Strg+S speichern, Strg+O öffnen, Strg+N neu, Strg+Z rückgängig, Strg+Y wiederholen, Strg+C kopieren, Strg+V einfügen.\r\n\r\n"
   L"EFFEKTE\r\nDas Effekte-Menü bietet 20 Filter, darunter Weichzeichnen, Schärfen, Ölfarbe, Relief und mehr.\r\n"
-  L"Dateien können als 24-Bit-BMP, PNG oder JPEG gespeichert werden.\r\n\r\nEFFEKT-REFERENZ\r\n"
+  L"Dateien können als BMP, PNG, JPEG, GIF, TIFF oder ICO gespeichert werden.\r\n\r\nEFFEKT-REFERENZ\r\n"
   L"Graustufen: wandelt Farben in Helligkeit um. Invertieren: kehrt alle Farben um.\r\n"
   L"Sepia: verleiht einen Alt-Foto-Look. Weichzeichnen: 3x3-Box-Weichzeichner.\r\n"
   L"Schärfen: betont Kanten. Verpixeln: reduziert das Bild auf 8x8-Blöcke.\r\n"
@@ -341,7 +346,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"F: Warum flackert die Leinwand nicht? A: Alle Zeichnungen nutzen Double-Buffering.\r\n",
   L"&Quellcode", L"Quellcode - MiniPaint",
   L"Aquarell", L"Nass", L"Öl", L"Skizze", L"Kalligr", L"Band",
-  L"Neon", L"Schatten", L"Referenz", L"Laden...", L"Ein-/Ausblenden", L"Entfernen", L"Stabilisierung", L"Dither", L"Pixelperfekt", L"Pixel-Palette" },
+  L"Neon", L"Schatten", L"Referenz", L"Laden...", L"Ein-/Ausblenden", L"Entfernen", L"Stabilisierung", L"Dither", L"Pixelperfekt", L"Pixel-Palette", L"G-Pen", L"Raster", L"Tempo", L"Blase", L"Panel",
+  L"Die Datei konnte nicht gespeichert werden. Der Speicherort ist möglicherweise schreibgeschützt oder der Datenträger voll." },
 // ---- Français ----
 { L"Crayon", L"Ligne", L"Rectangle", L"Ellipse", L"Remplir", L"Gomme", L"Pipette",
   L"Spray", L"Triangle", L"Arrondi", L"Étoile", L"Texte", L"Sélect.",
@@ -360,8 +366,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Outil : %s   Couleur : #%02X%02X%02X   Taille : %d   Zoom : %d%%   Position : %d,%d   [Ctrl+S Enregistrer, Ctrl+Z Annuler]",
   L"Erreur", L"Impossible d'ouvrir le fichier ou format non pris en charge.",
   L"Des modifications non enregistrées existent. Voulez-vous enregistrer avant de quitter ?",
-  L"MiniPaint v2.1\n\nUn programme de dessin écrit entièrement à partir de zéro\nen C++ pur et API Win32.\nAucune bibliothèque externe.\n\n"
-  L"31 outils, annulation 32 pas, 20 effets, zoom, symétrie,\nprise en charge BMP/PNG/JPEG/GIF/TIFF/ICO et 29 langues.",
+  L"MiniPaint v2.2\n\nUn programme de dessin écrit entièrement à partir de zéro\nen C++ pur et API Win32.\nAucune bibliothèque externe.\n\n"
+  L"36 outils, annulation 32 pas, 20 effets, zoom, symétrie,\nprise en charge BMP/PNG/JPEG/GIF/TIFF/ICO et 29 langues.",
   L"Fichiers image (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Annuler", L"Largeur :", L"Hauteur :",
   L"Choisir une couleur", L"Taille du canevas", L"Rempli", L"Pointe ronde", L"Pointe carrée",
@@ -382,7 +388,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symétrie : reflète les traits sur l'axe vertical.\r\n\r\nRACCOURCIS\r\n"
   L"Ctrl+S enregistrer, Ctrl+O ouvrir, Ctrl+N nouveau, Ctrl+Z annuler, Ctrl+Y rétablir, Ctrl+C copier, Ctrl+V coller.\r\n\r\n"
   L"EFFETS\r\nLe menu Effets propose 20 filtres : flou, netteté, peinture à l'huile, relief et plus.\r\n"
-  L"Les fichiers peuvent être enregistrés en BMP 24 bits, PNG ou JPEG.\r\n\r\nRÉFÉRENCE DES EFFETS\r\n"
+  L"Les fichiers peuvent être enregistrés en BMP, PNG, JPEG, GIF, TIFF ou ICO.\r\n\r\nRÉFÉRENCE DES EFFETS\r\n"
   L"Niveaux de gris : convertit les couleurs en luminance. Négatif : inverse toutes les couleurs.\r\n"
   L"Sépia : donne un aspect photo ancienne. Flou : applique un flou 3x3.\r\n"
   L"Netteté : accentue les contours. Pixéliser : réduit l'image en blocs 8x8.\r\n"
@@ -397,7 +403,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Q : Pourquoi le canevas ne scintille pas ? R : Tout le dessin utilise le double tampon.\r\n",
   L"&Code source", L"Code source - MiniPaint",
   L"Aquarelle", L"Mouillé", L"Huile", L"Crayon", L"Calligr", L"Ruban",
-  L"Néon", L"Ombre", L"Référence", L"Charger...", L"Afficher/Masquer", L"Supprimer", L"Stabilisateur", L"Tramage", L"Pixel parfait", L"Palette pixel" },
+  L"Néon", L"Ombre", L"Référence", L"Charger...", L"Afficher/Masquer", L"Supprimer", L"Stabilisateur", L"Tramage", L"Pixel parfait", L"Palette pixel", L"G-Pen", L"Trame", L"Vitesse", L"Bulle", L"Case",
+  L"Impossible d'enregistrer le fichier. L'emplacement est peut-être en lecture seule ou le disque est plein." },
 // ---- Español ----
 { L"Lápiz", L"Línea", L"Rectángulo", L"Elipse", L"Relleno", L"Borrador", L"Cuentagotas",
   L"Spray", L"Triángulo", L"Redondeado", L"Estrella", L"Texto", L"Selección",
@@ -416,8 +423,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Herramienta: %s   Color: #%02X%02X%02X   Grosor: %d   Zoom: %d%%   Posición: %d,%d   [Ctrl+S Guardar, Ctrl+Z Deshacer]",
   L"Error", L"No se pudo abrir el archivo o el formato no es compatible.",
   L"Hay cambios sin guardar. ¿Desea guardar antes de salir?",
-  L"MiniPaint v2.1\n\nUn programa de dibujo escrito completamente desde cero\nen C++ puro y API Win32.\nSin bibliotecas externas.\n\n"
-  L"31 herramientas, deshacer de 32 pasos, 20 efectos, zoom, simetría,\ncompatible con BMP/PNG/JPEG/GIF/TIFF/ICO y 29 idiomas.",
+  L"MiniPaint v2.2\n\nUn programa de dibujo escrito completamente desde cero\nen C++ puro y API Win32.\nSin bibliotecas externas.\n\n"
+  L"36 herramientas, deshacer de 32 pasos, 20 efectos, zoom, simetría,\ncompatible con BMP/PNG/JPEG/GIF/TIFF/ICO y 29 idiomas.",
   L"Archivos de imagen (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"Aceptar", L"Cancelar", L"Anchura:", L"Altura:",
   L"Elegir color personalizado", L"Tamaño del lienzo", L"Relleno", L"Punta redonda", L"Punta cuadrada",
@@ -438,7 +445,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Simetría: refleja los trazos en el eje vertical.\r\n\r\nATAJOS\r\n"
   L"Ctrl+S guardar, Ctrl+O abrir, Ctrl+N nuevo, Ctrl+Z deshacer, Ctrl+Y rehacer, Ctrl+C copiar, Ctrl+V pegar.\r\n\r\n"
   L"EFECTOS\r\nEl menú Efectos ofrece 20 filtros: desenfoque, enfoque, pintura al óleo, relieve y más.\r\n"
-  L"Los archivos se pueden guardar como BMP de 24 bits, PNG o JPEG.\r\n\r\nREFERENCIA DE EFECTOS\r\n"
+  L"Los archivos se pueden guardar como BMP, PNG, JPEG, GIF, TIFF o ICO.\r\n\r\nREFERENCIA DE EFECTOS\r\n"
   L"Escala de grises: convierte colores a luminancia. Negativo: invierte todos los colores.\r\n"
   L"Sepia: da un aspecto de foto antigua. Desenfocar: aplica un desenfoque 3x3.\r\n"
   L"Enfocar: acentúa los bordes. Pixelar: reduce la imagen a bloques de 8x8.\r\n"
@@ -453,7 +460,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"P: ¿Por qué el lienzo no parpadea? R: Todo el dibujo usa doble búfer.\r\n",
   L"&Código fuente", L"Código fuente - MiniPaint",
   L"Acuarela", L"Húmedo", L"Óleo", L"Lápiz", L"Caligr", L"Cinta",
-  L"Neón", L"Sombra", L"Referencia", L"Cargar...", L"Mostrar/Ocultar", L"Quitar", L"Estabilizador", L"Tramado", L"Píxel perfecto", L"Paleta pixel" },
+  L"Neón", L"Sombra", L"Referencia", L"Cargar...", L"Mostrar/Ocultar", L"Quitar", L"Estabilizador", L"Tramado", L"Píxel perfecto", L"Paleta pixel", L"G-Pen", L"Trama", L"Veloz", L"Globo", L"Viñeta",
+  L"No se pudo guardar el archivo. Es posible que la ubicación sea de solo lectura o que el disco esté lleno." },
 // ---- Italiano ----
 { L"Matita", L"Linea", L"Rettangolo", L"Ellisse", L"Riempi", L"Gomma", L"Preleva",
   L"Spray", L"Triangolo", L"Arrotondato", L"Stella", L"Testo", L"Seleziona",
@@ -472,8 +480,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Strumento: %s   Colore: #%02X%02X%02X   Dim.: %d   Zoom: %d%%   Pos.: %d,%d   [Ctrl+S Salva, Ctrl+Z Annulla]",
   L"Errore", L"Impossibile aprire il file o formato non supportato.",
   L"Ci sono modifiche non salvate. Salvare prima di uscire?",
-  L"MiniPaint v2.1\n\nUn programma di disegno scritto interamente da zero\nin C++ puro e API Win32.\nNessuna libreria esterna.\n\n"
-  L"31 strumenti, annullamento a 32 passi, 20 effetti, zoom, simmetria,\nsupporto BMP/PNG/JPEG/GIF/TIFF/ICO e 29 lingue.",
+  L"MiniPaint v2.2\n\nUn programma di disegno scritto interamente da zero\nin C++ puro e API Win32.\nNessuna libreria esterna.\n\n"
+  L"36 strumenti, annullamento a 32 passi, 20 effetti, zoom, simmetria,\nsupporto BMP/PNG/JPEG/GIF/TIFF/ICO e 29 lingue.",
   L"File immagine (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Annulla", L"Larghezza:", L"Altezza:",
   L"Scegli colore personalizzato", L"Dimensioni area", L"Pieno", L"Punta tonda", L"Punta quadrata",
@@ -494,7 +502,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Simmetria: riflette i tratti sull'asse verticale.\r\n\r\nSCORCIATOIE\r\n"
   L"Ctrl+S salva, Ctrl+O apri, Ctrl+N nuovo, Ctrl+Z annulla, Ctrl+Y ripeti, Ctrl+C copia, Ctrl+V incolla.\r\n\r\n"
   L"EFFETTI\r\nIl menu Effetti offre 20 filtri: sfocatura, nitidezza, pittura a olio, rilievo e altro.\r\n"
-  L"I file possono essere salvati come BMP a 24 bit, PNG o JPEG.\r\n\r\nRIFERIMENTO EFFETTI\r\n"
+  L"I file possono essere salvati come BMP, PNG, JPEG, GIF, TIFF o ICO.\r\n\r\nRIFERIMENTO EFFETTI\r\n"
   L"Scala di grigi: converte i colori in luminanza. Inverti: inverte tutti i colori.\r\n"
   L"Seppia: dona un aspetto da foto antica. Sfoca: applica una sfocatura 3x3.\r\n"
   L"Nitidezza: enfatizza i bordi. Pixela: riduce l'immagine a blocchi 8x8.\r\n"
@@ -509,7 +517,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"D: Perché l'area non sfarfalla? R: Tutto il disegno usa il doppio buffer.\r\n",
   L"&Codice sorgente", L"Codice sorgente - MiniPaint",
   L"Acquerello", L"Bagnato", L"Olio", L"Matita", L"Calligr", L"Nastro",
-  L"Neon", L"Ombra", L"Riferimento", L"Carica...", L"Mostra/Nascondi", L"Rimuovi", L"Stabilizzatore", L"Retino", L"Pixel perfetto", L"Tavolozza pixel" },
+  L"Neon", L"Ombra", L"Riferimento", L"Carica...", L"Mostra/Nascondi", L"Rimuovi", L"Stabilizzatore", L"Retino", L"Pixel perfetto", L"Tavolozza pixel", L"G-Pen", L"Retino", L"Veloce", L"Nuvola", L"Vignetta",
+  L"Impossibile salvare il file. Il percorso potrebbe essere di sola lettura o il disco pieno." },
 // ---- Português ----
 { L"Lápis", L"Linha", L"Retângulo", L"Elipse", L"Preencher", L"Borracha", L"Conta-gotas",
   L"Spray", L"Triângulo", L"Arredondado", L"Estrela", L"Texto", L"Seleção",
@@ -528,8 +537,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Ferramenta: %s   Cor: #%02X%02X%02X   Tamanho: %d   Zoom: %d%%   Pos.: %d,%d   [Ctrl+S Guardar, Ctrl+Z Desfazer]",
   L"Erro", L"Não foi possível abrir o ficheiro ou formato não suportado.",
   L"Existem alterações não guardadas. Deseja guardar antes de sair?",
-  L"MiniPaint v2.1\n\nUm programa de pintura escrito inteiramente do zero\nem C++ puro e API Win32.\nSem bibliotecas externas.\n\n"
-  L"31 ferramentas, desfazer de 32 passos, 20 efeitos, zoom, simetria,\nsuporte BMP/PNG/JPEG/GIF/TIFF/ICO e 29 idiomas.",
+  L"MiniPaint v2.2\n\nUm programa de pintura escrito inteiramente do zero\nem C++ puro e API Win32.\nSem bibliotecas externas.\n\n"
+  L"36 ferramentas, desfazer de 32 passos, 20 efeitos, zoom, simetria,\nsuporte BMP/PNG/JPEG/GIF/TIFF/ICO e 29 idiomas.",
   L"Ficheiros de imagem (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Cancelar", L"Largura:", L"Altura:",
   L"Escolher cor personalizada", L"Tamanho da tela", L"Preenchido", L"Ponta redonda", L"Ponta quadrada",
@@ -550,7 +559,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Simetria: espelha os traços no eixo vertical.\r\n\r\nATALHOS\r\n"
   L"Ctrl+S guardar, Ctrl+O abrir, Ctrl+N novo, Ctrl+Z desfazer, Ctrl+Y refazer, Ctrl+C copiar, Ctrl+V colar.\r\n\r\n"
   L"EFEITOS\r\nO menu Efeitos oferece 20 filtros: desfoque, nitidez, pintura a óleo, relevo e mais.\r\n"
-  L"Os ficheiros podem ser guardados como BMP de 24 bits, PNG ou JPEG.\r\n\r\nREFERÊNCIA DE EFEITOS\r\n"
+  L"Os ficheiros podem ser guardados como BMP, PNG, JPEG, GIF, TIFF ou ICO.\r\n\r\nREFERÊNCIA DE EFEITOS\r\n"
   L"Escala de cinzentos: converte cores em luminância. Inverter: inverte todas as cores.\r\n"
   L"Sépia: dá um aspeto de foto antiga. Desfocar: aplica um desfoque 3x3.\r\n"
   L"Nitidez: realça os contornos. Pixelizar: reduz a imagem a blocos 8x8.\r\n"
@@ -565,7 +574,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"P: Porque é que a tela não pisca? R: Todo o desenho usa duplo buffer.\r\n",
   L"Código &fonte", L"Código fonte - MiniPaint",
   L"Aquarela", L"Molhado", L"Óleo", L"Lápis", L"Caligr", L"Fita",
-  L"Neon", L"Sombra", L"Referência", L"Carregar...", L"Mostrar/Ocultar", L"Remover", L"Estabilizador", L"Pontilhado", L"Pixel perfeito", L"Paleta pixel" },
+  L"Neon", L"Sombra", L"Referência", L"Carregar...", L"Mostrar/Ocultar", L"Remover", L"Estabilizador", L"Pontilhado", L"Pixel perfeito", L"Paleta pixel", L"G-Pen", L"Retícula", L"Veloz", L"Balão", L"Painel",
+  L"Não foi possível guardar o ficheiro. A localização pode ser só de leitura ou o disco está cheio." },
 // ---- Russki ----
 { L"Карандаш", L"Линия", L"Прямоуг.", L"Эллипс", L"Заливка", L"Ластик", L"Пипетка",
   L"Спрей", L"Треугольник", L"Скруглён.", L"Звезда", L"Текст", L"Выбор",
@@ -584,8 +594,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Инструмент: %s   Цвет: #%02X%02X%02X   Размер: %d   Масштаб: %d%%   Позиция: %d,%d   [Ctrl+S Сохранить, Ctrl+Z Отменить]",
   L"Ошибка", L"Не удалось открыть файл или формат не поддерживается.",
   L"Есть несохранённые изменения. Сохранить перед выходом?",
-  L"MiniPaint v2.1\n\nПрограмма для рисования, полностью написанная с нуля\nна чистом C++ и Win32 API.\nБез внешних библиотек.\n\n"
-  L"31 инструмента, отмена на 32 шага, 20 эффектов, масштаб, симметрия,\nподдержка BMP/PNG/JPEG/GIF/TIFF/ICO и 29 языков.",
+  L"MiniPaint v2.2\n\nПрограмма для рисования, полностью написанная с нуля\nна чистом C++ и Win32 API.\nБез внешних библиотек.\n\n"
+  L"36 инструмента, отмена на 32 шага, 20 эффектов, масштаб, симметрия,\nподдержка BMP/PNG/JPEG/GIF/TIFF/ICO и 29 языков.",
   L"Файлы изображений (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"ОК", L"Отмена", L"Ширина:", L"Высота:",
   L"Выбор цвета", L"Размер холста", L"Залито", L"Круглая кисть", L"Квадратная кисть",
@@ -606,7 +616,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Симметрия: отражает штрихи по вертикальной оси.\r\n\r\nГОРЯЧИЕ КЛАВИШИ\r\n"
   L"Ctrl+S сохранить, Ctrl+O открыть, Ctrl+N новый, Ctrl+Z отменить, Ctrl+Y повторить, Ctrl+C копировать, Ctrl+V вставить.\r\n\r\n"
   L"ЭФФЕКТЫ\r\nМеню эффектов предлагает 20 фильтров: размытие, резкость, масляная краска, рельеф и другие.\r\n"
-  L"Файлы сохраняются как 24-бит BMP, PNG или JPEG.\r\n\r\nСПРАВКА ПО ЭФФЕКТАМ\r\n"
+  L"Файлы сохраняются как BMP, PNG, JPEG, GIF, TIFF или ICO.\r\n\r\nСПРАВКА ПО ЭФФЕКТАМ\r\n"
   L"Оттенки серого: переводит цвета в яркость. Негатив: инвертирует все цвета.\r\n"
   L"Сепия: придаёт вид старой фотографии. Размытие: применяет размытие 3x3.\r\n"
   L"Резкость: подчёркивает края. Пикселизация: уменьшает изображение до блоков 8x8.\r\n"
@@ -621,7 +631,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"В: Почему холст не мерцает? О: Вся отрисовка использует двойную буферизацию.\r\n",
   L"&Исходный код", L"Исходный код - MiniPaint",
   L"Акварель", L"Мокрый", L"Масло", L"Карандаш", L"Каллигр", L"Лента",
-  L"Неон", L"Тень", L"Референс", L"Загрузить...", L"Показать/скрыть", L"Убрать", L"Стабилизатор", L"Дизеринг", L"Идеальный пиксель", L"Пиксельная палитра" },
+  L"Неон", L"Тень", L"Референс", L"Загрузить...", L"Показать/скрыть", L"Убрать", L"Стабилизатор", L"Дизеринг", L"Идеальный пиксель", L"Пиксельная палитра", L"G-перо", L"Тон", L"Скорость", L"Пузырь", L"Панель",
+  L"Не удалось сохранить файл. Возможно, папка доступна только для чтения или диск заполнен." },
 // ---- Japonca ----
 { L"鉛筆", L"直線", L"四角", L"楕円", L"塗りつぶし", L"消しゴム", L"スポイト",
   L"スプレー", L"三角形", L"角丸", L"星", L"テキスト", L"選択",
@@ -640,8 +651,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  ツール: %s   色: #%02X%02X%02X   サイズ: %d   ズーム: %d%%   位置: %d,%d   [Ctrl+S 保存, Ctrl+Z 元に戻す]",
   L"エラー", L"ファイルを開けませんでした。形式がサポートされていない可能性があります。",
   L"保存されていない変更があります。終了する前に保存しますか？",
-  L"MiniPaint v2.1\n\n純粋なC++とWin32 APIだけでゼロから書かれた\nペイントプログラムです。外部ライブラリは使用していません。\n\n"
-  L"30種類のツール、32段階の元に戻す、20の効果、ズーム、対称、\nBMP/PNG/JPEG/GIF/TIFF/ICO対応、29か国語対応。",
+  L"MiniPaint v2.2\n\n純粋なC++とWin32 APIだけでゼロから書かれた\nペイントプログラムです。外部ライブラリは使用していません。\n\n"
+  L"36種類のツール、32段階の元に戻す、20の効果、ズーム、対称、\nBMP/PNG/JPEG/GIF/TIFF/ICO対応、29か国語対応。",
   L"画像ファイル (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0ビットマップ (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"キャンセル", L"幅:", L"高さ:",
   L"カスタム色の選択", L"キャンバスサイズ", L"塗りつぶし", L"丸筆", L"角筆",
@@ -662,7 +673,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"対称: 縦軸でストロークを反転します。\r\n\r\nショートカット\r\n"
   L"Ctrl+S 保存, Ctrl+O 開く, Ctrl+N 新規, Ctrl+Z 元に戻す, Ctrl+Y やり直し, Ctrl+C コピー, Ctrl+V 貼り付け。\r\n\r\n"
   L"効果\r\n効果メニューにはぼかし、シャープ、油絵、エンボスなど20種類のフィルタがあります。\r\n"
-  L"ファイルは24ビットBMP、PNGまたはJPEGで保存できます。\r\n\r\n効果リファレンス\r\n"
+  L"ファイルはBMP、PNG、JPEG、GIF、TIFFまたはICOで保存できます。\r\n\r\n効果リファレンス\r\n"
   L"グレースケール: 色を輝度に変換。ネガ反転: すべての色を反転。\r\n"
   L"セピア: 古い写真風に。ぼかし: 3x3ボックスぼかしを適用。\r\n"
   L"シャープ: 輪郭を強調。モザイク: 画像を8x8ブロックに。\r\n"
@@ -677,7 +688,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Q: キャンバスがちらつかないのはなぜ? A: すべての描画にダブルバッファを使用。\r\n",
   L"&ソースコード", L"ソースコード - MiniPaint",
   L"水彩", L"濡れ混色", L"油彩", L"鉛筆", L"カリグラ", L"リボン",
-  L"ネオン", L"影", L"参照画像", L"読み込み...", L"表示/非表示", L"削除", L"手ブレ補正", L"ディザ", L"ピクセルパーフェクト", L"ピクセルパレット" },
+  L"ネオン", L"影", L"参照画像", L"読み込み...", L"表示/非表示", L"削除", L"手ブレ補正", L"ディザ", L"ピクセルパーフェクト", L"ピクセルパレット", L"Gペン", L"トーン", L"効果線", L"吹き出し", L"コマ",
+  L"ファイルを保存できませんでした。場所が読み取り専用か、ディスクがいっぱいの可能性があります。" },
 // ---- Cince ----
 { L"铅笔", L"直线", L"矩形", L"椭圆", L"填充", L"橡皮", L"取色",
   L"喷枪", L"三角形", L"圆角矩形", L"星形", L"文本", L"选择",
@@ -696,8 +708,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  工具: %s   颜色: #%02X%02X%02X   大小: %d   缩放: %d%%   位置: %d,%d   [Ctrl+S 保存, Ctrl+Z 撤销]",
   L"错误", L"无法打开文件，或不支持该格式。",
   L"有未保存的更改。是否在退出前保存？",
-  L"MiniPaint v2.1\n\n完全从零开始用纯C++和Win32 API编写的绘图程序。\n不使用任何外部库。\n\n"
-  L"30种工具、32步撤销、20种特效、缩放、对称、\n支持BMP/PNG/JPEG/GIF/TIFF/ICO和29种语言。",
+  L"MiniPaint v2.2\n\n完全从零开始用纯C++和Win32 API编写的绘图程序。\n不使用任何外部库。\n\n"
+  L"36种工具、32步撤销、20种特效、缩放、对称、\n支持BMP/PNG/JPEG/GIF/TIFF/ICO和29种语言。",
   L"图像文件 (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0位图 (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"确定", L"取消", L"宽度:", L"高度:",
   L"选择自定义颜色", L"画布大小", L"填充", L"圆笔头", L"方笔头",
@@ -718,7 +730,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"对称: 沿垂直轴镜像笔画。\r\n\r\n快捷键\r\n"
   L"Ctrl+S 保存, Ctrl+O 打开, Ctrl+N 新建, Ctrl+Z 撤销, Ctrl+Y 重做, Ctrl+C 复制, Ctrl+V 粘贴。\r\n\r\n"
   L"效果\r\n效果菜单提供20种滤镜: 模糊、锐化、油画、浮雕等。\r\n"
-  L"文件可保存为24位BMP、PNG或JPEG。\r\n\r\n效果参考\r\n"
+  L"文件可保存为BMP、PNG、JPEG、GIF、TIFF或ICO。\r\n\r\n效果参考\r\n"
   L"灰度: 将颜色转换为亮度。反色: 反转所有颜色。\r\n"
   L"怀旧: 呈现老照片效果。模糊: 应用3x3盒式模糊。\r\n"
   L"锐化: 突出边缘。像素化: 将图像缩减为8x8方块。\r\n"
@@ -733,7 +745,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"问: 画布为什么不闪烁? 答: 所有绘制都使用双缓冲。\r\n",
   L"&源代码", L"源代码 - MiniPaint",
   L"水彩", L"湿混色", L"油画", L"铅笔", L"书法", L"彩带",
-  L"霓虹", L"阴影", L"参考图", L"加载...", L"显示/隐藏", L"移除", L"防抖", L"抖动", L"完美像素", L"像素调色板" },
+  L"霓虹", L"阴影", L"参考图", L"加载...", L"显示/隐藏", L"移除", L"防抖", L"抖动", L"完美像素", L"像素调色板", L"G笔", L"网点", L"速度线", L"气泡", L"分格",
+  L"无法保存文件。位置可能为只读，或磁盘已满。" },
 // ---- Nederlands ----
 { L"Potlood", L"Lijn", L"Vak", L"Ellips", L"Vullen", L"Gum", L"Kleur nemen",
   L"Spray", L"Driehoek", L"Afgerond", L"Ster", L"Tekst", L"Selectie",
@@ -752,8 +765,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Gereedschap: %s   Kleur: #%02X%02X%02X   Grootte: %d   Zoom: %d%%   Positie: %d,%d   [Ctrl+S Opslaan, Ctrl+Z Ongedaan maken]",
   L"Fout", L"Kan bestand niet openen of formaat wordt niet ondersteund.",
   L"Er zijn niet-opgeslagen wijzigingen. Wilt u opslaan voordat u afsluit?",
-  L"MiniPaint v2.1\n\nEen tekenprogramma volledig vanaf nul geschreven\nin pure C++ en de Win32 API.\nGeen externe bibliotheken.\n\n"
-  L"31 gereedschappen, 32-staps ongedaan maken, 20 effecten, zoom, symmetrie,\nBMP/PNG/JPEG/GIF/TIFF/ICO-ondersteuning en 29 talen.",
+  L"MiniPaint v2.2\n\nEen tekenprogramma volledig vanaf nul geschreven\nin pure C++ en de Win32 API.\nGeen externe bibliotheken.\n\n"
+  L"36 gereedschappen, 32-staps ongedaan maken, 20 effecten, zoom, symmetrie,\nBMP/PNG/JPEG/GIF/TIFF/ICO-ondersteuning en 29 talen.",
   L"Afbeeldingsbestanden (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Annuleren", L"Breedte:", L"Hoogte:",
   L"Aangepaste kleur kiezen", L"Canvasgrootte", L"Gevuld", L"Ronde punt", L"Vierkante punt",
@@ -774,7 +787,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symmetrie spiegelt streken over de verticale as.\r\n\r\nSNELTOETSEN\r\n"
   L"Ctrl+S opslaan, Ctrl+O openen, Ctrl+N nieuw, Ctrl+Z ongedaan maken, Ctrl+Y opnieuw, Ctrl+C kopiëren, Ctrl+V plakken.\r\n\r\n"
   L"EFFECTEN\r\nHet menu Effecten biedt 20 filters zoals vervagen, verscherpen, olieverf en reliëf.\r\n"
-  L"Bestanden kunnen worden opgeslagen als 24-bits BMP, PNG of JPEG.\r\n\r\nEFFECTENREFERENTIE\r\n"
+  L"Bestanden kunnen worden opgeslagen als BMP, PNG, JPEG, GIF, TIFF of ICO.\r\n\r\nEFFECTENREFERENTIE\r\n"
   L"Grijstinten: zet kleuren om naar helderheid. Inverteren: keert alle kleuren om.\r\n"
   L"Sepia: geeft een oude-fotolook. Vervagen: past een 3x3-vervaging toe.\r\n"
   L"Verscherpen: benadrukt randen. Pixelen: reduceert het beeld tot 8x8-blokken.\r\n"
@@ -789,7 +802,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"V: Waarom flikkert het canvas niet? A: Alles wordt met dubbele buffering getekend.\r\n",
   L"&Broncode", L"Broncode - MiniPaint",
   L"Aquarel", L"Nat", L"Olie", L"Potlood", L"Kalligr", L"Lint",
-  L"Neon", L"Schaduw", L"Referentie", L"Laden...", L"Tonen/verbergen", L"Verwijderen", L"Stabilisatie", L"Dither", L"Pixelperfect", L"Pixelpalet" },
+  L"Neon", L"Schaduw", L"Referentie", L"Laden...", L"Tonen/verbergen", L"Verwijderen", L"Stabilisatie", L"Dither", L"Pixelperfect", L"Pixelpalet", L"G-Pen", L"Raster", L"Snelheid", L"Ballon", L"Paneel",
+  L"Kan het bestand niet opslaan. De locatie is mogelijk alleen-lezen of de schijf is vol." },
 // ---- Polski ----
 { L"Ołówek", L"Linia", L"Prostokąt", L"Elipsa", L"Wypełnij", L"Gumka", L"Pobierz",
   L"Spray", L"Trójkąt", L"Zaokrągl.", L"Gwiazda", L"Tekst", L"Zaznacz",
@@ -808,8 +822,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Narzędzie: %s   Kolor: #%02X%02X%02X   Rozmiar: %d   Zoom: %d%%   Pozycja: %d,%d   [Ctrl+S Zapisz, Ctrl+Z Cofnij]",
   L"Błąd", L"Nie można otworzyć pliku lub format nie jest obsługiwany.",
   L"Istnieją niezapisane zmiany. Zapisać przed zamknięciem?",
-  L"MiniPaint v2.1\n\nProgram do rysowania napisany całkowicie od zera\nw czystym C++ i Win32 API.\nBez zewnętrznych bibliotek.\n\n"
-  L"31 narzędzia, 32-krotne cofanie, 20 efektów, zoom, symetria,\nobsługa BMP/PNG/JPEG/GIF/TIFF/ICO i 29 języków.",
+  L"MiniPaint v2.2\n\nProgram do rysowania napisany całkowicie od zera\nw czystym C++ i Win32 API.\nBez zewnętrznych bibliotek.\n\n"
+  L"36 narzędzia, 32-krotne cofanie, 20 efektów, zoom, symetria,\nobsługa BMP/PNG/JPEG/GIF/TIFF/ICO i 29 języków.",
   L"Pliki graficzne (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Anuluj", L"Szerokość:", L"Wysokość:",
   L"Wybierz kolor niestandardowy", L"Rozmiar płótna", L"Wypełnione", L"Okrągła końcówka", L"Kwadratowa końcówka",
@@ -830,7 +844,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symetria odbija pociągnięcia względem osi pionowej.\r\n\r\nSKRÓTY\r\n"
   L"Ctrl+S zapisz, Ctrl+O otwórz, Ctrl+N nowy, Ctrl+Z cofnij, Ctrl+Y ponów, Ctrl+C kopiuj, Ctrl+V wklej.\r\n\r\n"
   L"EFEKTY\r\nMenu Efekty oferuje 20 filtrów, m.in. rozmycie, wyostrzenie, farbę olejną i relief.\r\n"
-  L"Pliki można zapisywać jako 24-bitowe BMP, PNG lub JPEG.\r\n\r\nOPIS EFEKTÓW\r\n"
+  L"Pliki można zapisywać jako BMP, PNG, JPEG, GIF, TIFF lub ICO.\r\n\r\nOPIS EFEKTÓW\r\n"
   L"Skala szarości: zamienia kolory na jasność. Negatyw: odwraca wszystkie kolory.\r\n"
   L"Sepia: nadaje wygląd starego zdjęcia. Rozmycie: stosuje rozmycie 3x3.\r\n"
   L"Wyostrzenie: podkreśla krawędzie. Pikselizacja: redukuje obraz do bloków 8x8.\r\n"
@@ -845,7 +859,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"P: Dlaczego płótno nie migocze? O: Całe rysowanie używa podwójnego bufora.\r\n",
   L"&Kod źródłowy", L"Kod źródłowy - MiniPaint",
   L"Akwarela", L"Mokry", L"Olej", L"Ołówek", L"Kaligr", L"Wstążka",
-  L"Neon", L"Cień", L"Referencja", L"Wczytaj...", L"Pokaż/ukryj", L"Usuń", L"Stabilizacja", L"Dithering", L"Idealny piksel", L"Paleta pikseli" },
+  L"Neon", L"Cień", L"Referencja", L"Wczytaj...", L"Pokaż/ukryj", L"Usuń", L"Stabilizacja", L"Dithering", L"Idealny piksel", L"Paleta pikseli", L"G-Pen", L"Raster", L"Szybkość", L"Dymek", L"Panel",
+  L"Nie można zapisać pliku. Lokalizacja może być tylko do odczytu lub dysk jest pełny." },
 // ---- Ukrayinska ----
 { L"Олівець", L"Лінія", L"Прямокут.", L"Еліпс", L"Заливка", L"Гумка", L"Піпетка",
   L"Спрей", L"Трикутник", L"Заокругл.", L"Зірка", L"Текст", L"Вибір",
@@ -864,8 +879,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Інструмент: %s   Колір: #%02X%02X%02X   Розмір: %d   Масштаб: %d%%   Позиція: %d,%d   [Ctrl+S Зберегти, Ctrl+Z Скасувати]",
   L"Помилка", L"Не вдалося відкрити файл або формат не підтримується.",
   L"Є незбережені зміни. Зберегти перед виходом?",
-  L"MiniPaint v2.1\n\nПрограма для малювання, повністю написана з нуля\nна чистому C++ і Win32 API.\nБез зовнішніх бібліотек.\n\n"
-  L"31 інструменти, скасування на 32 кроки, 20 ефектів, масштаб, симетрія,\nпідтримка BMP/PNG/JPEG/GIF/TIFF/ICO і 29 мов.",
+  L"MiniPaint v2.2\n\nПрограма для малювання, повністю написана з нуля\nна чистому C++ і Win32 API.\nБез зовнішніх бібліотек.\n\n"
+  L"36 інструменти, скасування на 32 кроки, 20 ефектів, масштаб, симетрія,\nпідтримка BMP/PNG/JPEG/GIF/TIFF/ICO і 29 мов.",
   L"Файли зображень (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"Гаразд", L"Скасувати", L"Ширина:", L"Висота:",
   L"Вибір кольору", L"Розмір полотна", L"Залито", L"Круглий пензель", L"Квадратний пензель",
@@ -886,7 +901,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Симетрія віддзеркалює штрихи по вертикальній осі.\r\n\r\nГАРЯЧІ КЛАВІШІ\r\n"
   L"Ctrl+S зберегти, Ctrl+O відкрити, Ctrl+N новий, Ctrl+Z скасувати, Ctrl+Y повторити, Ctrl+C копіювати, Ctrl+V вставити.\r\n\r\n"
   L"ЕФЕКТИ\r\nМеню ефектів пропонує 20 фільтрів: розмиття, різкість, олійна фарба, рельєф тощо.\r\n"
-  L"Файли зберігаються як 24-біт BMP, PNG або JPEG.\r\n\r\nДОВІДКА ПО ЕФЕКТАХ\r\n"
+  L"Файли зберігаються як BMP, PNG, JPEG, GIF, TIFF або ICO.\r\n\r\nДОВІДКА ПО ЕФЕКТАХ\r\n"
   L"Відтінки сірого: перетворює кольори в яскравість. Негатив: інвертує всі кольори.\r\n"
   L"Сепія: надає вигляд старої фотографії. Розмиття: застосовує розмиття 3x3.\r\n"
   L"Різкість: підкреслює краї. Пікселізація: зменшує зображення до блоків 8x8.\r\n"
@@ -901,7 +916,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"П: Чому полотно не мерехтить? В: Все малювання використовує подвійну буферизацію.\r\n",
   L"&Вихідний код", L"Вихідний код - MiniPaint",
   L"Акварель", L"Мокрий", L"Олія", L"Олівець", L"Калігр", L"Стрічка",
-  L"Неон", L"Тінь", L"Референс", L"Завантажити...", L"Показати/сховати", L"Прибрати", L"Стабілізатор", L"Дізеринг", L"Ідеальний піксель", L"Піксельна палітра" },
+  L"Неон", L"Тінь", L"Референс", L"Завантажити...", L"Показати/сховати", L"Прибрати", L"Стабілізатор", L"Дізеринг", L"Ідеальний піксель", L"Піксельна палітра", L"G-перо", L"Тон", L"Швидкість", L"Балон", L"Панель",
+  L"Не вдалося зберегти файл. Можливо, розташування доступне лише для читання або диск заповнений." },
 // ---- Korece ----
 { L"연필", L"직선", L"사각형", L"타원", L"채우기", L"지우개", L"색 추출",
   L"스프레이", L"삼각형", L"둥근 사각형", L"별", L"텍스트", L"선택",
@@ -920,8 +936,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  도구: %s   색: #%02X%02X%02X   크기: %d   확대: %d%%   위치: %d,%d   [Ctrl+S 저장, Ctrl+Z 실행 취소]",
   L"오류", L"파일을 열 수 없거나 형식이 지원되지 않습니다.",
   L"저장되지 않은 변경 사항이 있습니다. 종료하기 전에 저장하시겠습니까?",
-  L"MiniPaint v2.1\n\n순수 C++과 Win32 API만으로 처음부터 작성된\n그림 프로그램입니다. 외부 라이브러리를 사용하지 않습니다.\n\n"
-  L"30가지 도구, 32단계 실행 취소, 20가지 효과, 확대, 대칭,\nBMP/PNG/JPEG/GIF/TIFF/ICO 지원 및 29개 언어.",
+  L"MiniPaint v2.2\n\n순수 C++과 Win32 API만으로 처음부터 작성된\n그림 프로그램입니다. 외부 라이브러리를 사용하지 않습니다.\n\n"
+  L"36가지 도구, 32단계 실행 취소, 20가지 효과, 확대, 대칭,\nBMP/PNG/JPEG/GIF/TIFF/ICO 지원 및 29개 언어.",
   L"이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0비트맵 (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"확인", L"취소", L"너비:", L"높이:",
   L"사용자 지정 색 선택", L"캔버스 크기", L"채우기", L"둥근 붓", L"사각 붓",
@@ -942,7 +958,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"대칭: 세로 축을 기준으로 선을 반전합니다.\r\n\r\n바로 가기\r\n"
   L"Ctrl+S 저장, Ctrl+O 열기, Ctrl+N 새로 만들기, Ctrl+Z 실행 취소, Ctrl+Y 다시 실행, Ctrl+C 복사, Ctrl+V 붙여넣기.\r\n\r\n"
   L"효과\r\n효과 메뉴에는 흐림, 선명하게, 유화, 엠보스 등 20가지 필터가 있습니다.\r\n"
-  L"파일은 24비트 BMP, PNG 또는 JPEG로 저장할 수 있습니다.\r\n\r\n효과 참조\r\n"
+  L"파일은 BMP, PNG, JPEG, GIF, TIFF 또는 ICO로 저장할 수 있습니다.\r\n\r\n효과 참조\r\n"
   L"회색조: 색을 밝기로 변환. 반전: 모든 색을 반전.\r\n"
   L"세피아: 오래된 사진 느낌. 흐림: 3x3 박스 흐림 적용.\r\n"
   L"선명하게: 윤곽 강조. 모자이크: 이미지를 8x8 블록으로.\r\n"
@@ -957,7 +973,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Q: 캔버스가 깜빡이지 않는 이유는? A: 모든 그리기에 이중 버퍼링 사용.\r\n",
   L"&소스 코드", L"소스 코드 - MiniPaint",
   L"수채화", L"혼합", L"유화", L"연필", L"캘리그", L"리본",
-  L"네온", L"그림자", L"참조 이미지", L"불러오기...", L"표시/숨기기", L"제거", L"흔들림 보정", L"디더", L"픽셀 퍼펙트", L"픽셀 팔레트" },
+  L"네온", L"그림자", L"참조 이미지", L"불러오기...", L"표시/숨기기", L"제거", L"흔들림 보정", L"디더", L"픽셀 퍼펙트", L"픽셀 팔레트", L"G펜", L"톤", L"스피드선", L"말풍선", L"패널",
+  L"파일을 저장할 수 없습니다. 위치가 읽기 전용이거나 디스크가 가득 찼을 수 있습니다." },
 // ---- Arapca ----
 { L"قلم رصاص", L"خط", L"مستطيل", L"بيضاوي", L"تعبئة", L"ممحاة", L"قطارة",
   L"رذاذ", L"مثلث", L"مستدير", L"نجمة", L"نص", L"تحديد",
@@ -976,8 +993,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  الأداة: %s   اللون: #%02X%02X%02X   الحجم: %d   التكبير: %d%%   الموضع: %d,%d   [Ctrl+S حفظ، Ctrl+Z تراجع]",
   L"خطأ", L"تعذر فتح الملف أو التنسيق غير مدعوم.",
   L"هناك تغييرات غير محفوظة. هل تريد الحفظ قبل الخروج؟",
-  L"MiniPaint v2.1\n\nبرنامج رسم مكتوب بالكامل من الصفر\nبلغة C++ النقية وواجهة Win32.\nبدون مكتبات خارجية.\n\n"
-  L"31 أداة، تراجع 32 خطوة، 20 تأثيراً، تكبير، تماثل،\nودعم BMP/PNG/JPEG/GIF/TIFF/ICO و29 لغة.",
+  L"MiniPaint v2.2\n\nبرنامج رسم مكتوب بالكامل من الصفر\nبلغة C++ النقية وواجهة Win32.\nبدون مكتبات خارجية.\n\n"
+  L"36 أداة، تراجع 32 خطوة، 20 تأثيراً، تكبير، تماثل،\nودعم BMP/PNG/JPEG/GIF/TIFF/ICO و29 لغة.",
   L"ملفات الصور (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"موافق", L"إلغاء", L"العرض:", L"الارتفاع:",
   L"اختيار لون مخصص", L"حجم اللوحة", L"معبأ", L"طرف دائري", L"طرف مربع",
@@ -998,7 +1015,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"التماثل يعكس الخطوط على المحور العمودي.\r\n\r\nالاختصارات\r\n"
   L"Ctrl+S حفظ، Ctrl+O فتح، Ctrl+N جديد، Ctrl+Z تراجع، Ctrl+Y إعادة، Ctrl+C نسخ، Ctrl+V لصق.\r\n\r\n"
   L"التأثيرات\r\nقائمة التأثيرات توفر 20 مرشحاً منها الضبابية والحدة والطلاء الزيتي والبارز.\r\n"
-  L"يمكن حفظ الملفات بصيغة BMP 24 بت أو PNG أو JPEG.\r\n\r\nمرجع التأثيرات\r\n"
+  L"يمكن حفظ الملفات بصيغة BMP أو PNG أو JPEG أو GIF أو TIFF أو ICO.\r\n\r\nمرجع التأثيرات\r\n"
   L"تدرج رمادي: يحول الألوان إلى إضاءة. عكس: يعكس كل الألوان.\r\n"
   L"بني داكن: يعطي مظهر صورة قديمة. ضبابية: يطبق ضبابية 3x3.\r\n"
   L"حدة: يبرز الحواف. بكسلة: يختزل الصورة إلى كتل 8x8.\r\n"
@@ -1013,7 +1030,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"س: لماذا لا تومض اللوحة؟ ج: كل الرسم يستخدم التخزين المؤقت المزدوج.\r\n",
   L"&الشيفرة المصدرية", L"الشيفرة المصدرية - MiniPaint",
   L"ألوان مائية", L"رطب", L"زيتي", L"رصاص", L"خط", L"شريط",
-  L"نيون", L"ظل", L"مرجع", L"تحميل...", L"إظهار/إخفاء", L"إزالة", L"مثبت الفرشاة", L"تنقيط", L"بكسل مثالي", L"لوحة بكسل" },
+  L"نيون", L"ظل", L"مرجع", L"تحميل...", L"إظهار/إخفاء", L"إزالة", L"مثبت الفرشاة", L"تنقيط", L"بكسل مثالي", L"لوحة بكسل", L"قلم G", L"نقاط", L"سرعة", L"فقاعة", L"لوحة",
+  L"تعذر حفظ الملف. قد يكون الموقع للقراءة فقط أو القرص ممتلئًا." },
 // ---- Hintce ----
 { L"पेंसिल", L"रेखा", L"आयत", L"दीर्घवृत्त", L"भरें", L"रबड़", L"रंग चुनें",
   L"स्प्रे", L"त्रिभुज", L"गोल कोण", L"तारा", L"टेक्स्ट", L"चयन",
@@ -1032,8 +1050,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  उपकरण: %s   रंग: #%02X%02X%02X   आकार: %d   ज़ूम: %d%%   स्थिति: %d,%d   [Ctrl+S सहेजें, Ctrl+Z पूर्ववत]",
   L"त्रुटि", L"फ़ाइल नहीं खुल सकी या प्रारूप समर्थित नहीं है।",
   L"सहेजे न गए परिवर्तन हैं। बाहर निकलने से पहले सहेजें?",
-  L"MiniPaint v2.1\n\nशुद्ध C++ और Win32 API में पूरी तरह शुरुआत से\nलिखा गया पेंट प्रोग्राम। कोई बाहरी लाइब्रेरी नहीं।\n\n"
-  L"31 उपकरण, 32-चरण पूर्ववत, 20 प्रभाव, ज़ूम, सममिति,\nBMP/PNG/JPEG/GIF/TIFF/ICO समर्थन और 29 भाषाएँ।",
+  L"MiniPaint v2.2\n\nशुद्ध C++ और Win32 API में पूरी तरह शुरुआत से\nलिखा गया पेंट प्रोग्राम। कोई बाहरी लाइब्रेरी नहीं।\n\n"
+  L"36 उपकरण, 32-चरण पूर्ववत, 20 प्रभाव, ज़ूम, सममिति,\nBMP/PNG/JPEG/GIF/TIFF/ICO समर्थन और 29 भाषाएँ।",
   L"छवि फ़ाइलें (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"ठीक", L"रद्द करें", L"चौड़ाई:", L"ऊँचाई:",
   L"कस्टम रंग चुनें", L"कैनवस आकार", L"भरा हुआ", L"गोल नोक", L"चौकोर नोक",
@@ -1054,7 +1072,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"सममिति: ऊर्ध्वाधर अक्ष पर स्ट्रोक को प्रतिबिंबित करती है।\r\n\r\nशॉर्टकट\r\n"
   L"Ctrl+S सहेजें, Ctrl+O खोलें, Ctrl+N नया, Ctrl+Z पूर्ववत, Ctrl+Y फिर से, Ctrl+C कॉपी, Ctrl+V पेस्ट।\r\n\r\n"
   L"प्रभाव\r\nप्रभाव मेनू में धुंधला, तेज़, तेल चित्र, उभार सहित 20 फ़िल्टर हैं।\r\n"
-  L"फ़ाइलें 24-बिट BMP, PNG या JPEG के रूप में सहेजी जा सकती हैं।\r\n\r\nप्रभाव संदर्भ\r\n"
+  L"फ़ाइलें BMP, PNG, JPEG, GIF, TIFF या ICO के रूप में सहेजी जा सकती हैं।\r\n\r\nप्रभाव संदर्भ\r\n"
   L"ग्रेस्केल: रंगों को चमक में बदलता है। निगेटिव: सभी रंग उलटता है।\r\n"
   L"सेपिया: पुरानी तस्वीर जैसा दिखाता है। धुंधला: 3x3 बॉक्स ब्लर लगाता है।\r\n"
   L"तेज़: किनारों को उभारता है। पिक्सेल: छवि को 8x8 ब्लॉक में बदलता है।\r\n"
@@ -1069,7 +1087,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"प्र: कैनवस क्यों नहीं झिलमिलाता? उ: सभी चित्रण डबल बफरिंग का उपयोग करता है।\r\n",
   L"&स्रोत कोड", L"स्रोत कोड - MiniPaint",
   L"जलरंग", L"गीला", L"तेल", L"पेंसिल", L"सुलेख", L"रिबन",
-  L"नियॉन", L"छाया", L"संदर्भ", L"लोड करें...", L"दिखाएँ/छिपाएँ", L"हटाएँ", L"स्टेबलाइज़र", L"डिथर", L"परफेक्ट पिक्सेल", L"पिक्सेल पैलेट" },
+  L"नियॉन", L"छाया", L"संदर्भ", L"लोड करें...", L"दिखाएँ/छिपाएँ", L"हटाएँ", L"स्टेबलाइज़र", L"डिथर", L"परफेक्ट पिक्सेल", L"पिक्सेल पैलेट", L"जी-पेन", L"टोन", L"गति", L"बबल", L"पैनल",
+  L"फ़ाइल सहेजी नहीं जा सकी। हो सकता है स्थान केवल-पढ़ने योग्य हो या डिस्क भरी हो।" },
 // ---- Endonezce ----
 { L"Pensil", L"Garis", L"Kotak", L"Elips", L"Isi", L"Penghapus", L"Ambil Warna",
   L"Semprot", L"Segitiga", L"Bulat", L"Bintang", L"Teks", L"Pilih",
@@ -1088,8 +1107,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Alat: %s   Warna: #%02X%02X%02X   Ukuran: %d   Zoom: %d%%   Posisi: %d,%d   [Ctrl+S Simpan, Ctrl+Z Urungkan]",
   L"Kesalahan", L"Berkas tidak dapat dibuka atau format tidak didukung.",
   L"Ada perubahan yang belum disimpan. Simpan sebelum keluar?",
-  L"MiniPaint v2.1\n\nProgram gambar yang ditulis sepenuhnya dari awal\ndengan C++ murni dan Win32 API.\nTanpa pustaka eksternal.\n\n"
-  L"31 alat, urungkan 32 langkah, 20 efek, zoom, simetri,\ndukungan BMP/PNG/JPEG/GIF/TIFF/ICO dan 29 bahasa.",
+  L"MiniPaint v2.2\n\nProgram gambar yang ditulis sepenuhnya dari awal\ndengan C++ murni dan Win32 API.\nTanpa pustaka eksternal.\n\n"
+  L"36 alat, urungkan 32 langkah, 20 efek, zoom, simetri,\ndukungan BMP/PNG/JPEG/GIF/TIFF/ICO dan 29 bahasa.",
   L"Berkas Gambar (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Batal", L"Lebar:", L"Tinggi:",
   L"Pilih Warna Kustom", L"Ukuran Kanvas", L"Terisi", L"Ujung Bulat", L"Ujung Kotak",
@@ -1110,7 +1129,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Simetri: mencerminkan goresan kuas pada sumbu vertikal.\r\n\r\nPINTASAN\r\n"
   L"Ctrl+S simpan, Ctrl+O buka, Ctrl+N baru, Ctrl+Z urungkan, Ctrl+Y ulangi, Ctrl+C salin, Ctrl+V tempel.\r\n\r\n"
   L"EFEK\r\nMenu Efek berisi 20 filter termasuk skala abu, negatif, sepia, buram, tajam, timbul dan cat minyak.\r\n"
-  L"Berkas dapat disimpan sebagai BMP 24-bit, PNG atau JPEG.\r\n\r\nREFERENSI EFEK\r\n"
+  L"Berkas dapat disimpan sebagai BMP, PNG, JPEG, GIF, TIFF atau ICO.\r\n\r\nREFERENSI EFEK\r\n"
   L"Skala Abu: mengubah warna menjadi kecerahan. Negatif: membalik semua warna.\r\n"
   L"Sepia: memberi tampilan foto lama. Buram: menerapkan buram kotak 3x3.\r\n"
   L"Tajam: mempertajam tepi. Piksel: mereduksi gambar menjadi blok 8x8.\r\n"
@@ -1125,7 +1144,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"T: Mengapa kanvas tidak berkedip? J: Semua penggambaran memakai buffering ganda.\r\n",
   L"Kode &Sumber", L"Kode Sumber - MiniPaint",
   L"Cat Air", L"Basah", L"Minyak", L"Pensil", L"Kaligraf", L"Pita",
-  L"Neon", L"Bayangan", L"Referensi", L"Muat...", L"Tampil/Sembunyi", L"Hapus", L"Stabilizer", L"Dither", L"Piksel sempurna", L"Palet piksel" },
+  L"Neon", L"Bayangan", L"Referensi", L"Muat...", L"Tampil/Sembunyi", L"Hapus", L"Stabilizer", L"Dither", L"Piksel sempurna", L"Palet piksel", L"G-Pen", L"Tone", L"Cepat", L"Balon", L"Panel",
+  L"Tidak dapat menyimpan berkas. Lokasi mungkin hanya-baca atau diska penuh." },
 // ---- Vietnamca ----
 { L"Bút chì", L"Đường", L"Hộp", L"Elip", L"Tô", L"Tẩy", L"Lấy màu",
   L"Phun", L"Tam giác", L"Bo tròn", L"Ngôi sao", L"Văn bản", L"Chọn",
@@ -1144,8 +1164,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Công cụ: %s   Màu: #%02X%02X%02X   Cỡ: %d   Thu phóng: %d%%   Vị trí: %d,%d   [Ctrl+S Lưu, Ctrl+Z Hoàn tác]",
   L"Lỗi", L"Không thể mở tệp hoặc định dạng không được hỗ trợ.",
   L"Có thay đổi chưa lưu. Bạn có muốn lưu trước khi thoát không?",
-  L"MiniPaint v2.1\n\nChương trình vẽ được viết hoàn toàn từ đầu\nbằng C++ thuần và Win32 API.\nKhông dùng thư viện ngoài.\n\n"
-  L"31 công cụ, hoàn tác 32 bước, 20 hiệu ứng, thu phóng, đối xứng,\nhỗ trợ BMP/PNG/JPEG/GIF/TIFF/ICO và 29 ngôn ngữ.",
+  L"MiniPaint v2.2\n\nChương trình vẽ được viết hoàn toàn từ đầu\nbằng C++ thuần và Win32 API.\nKhông dùng thư viện ngoài.\n\n"
+  L"36 công cụ, hoàn tác 32 bước, 20 hiệu ứng, thu phóng, đối xứng,\nhỗ trợ BMP/PNG/JPEG/GIF/TIFF/ICO và 29 ngôn ngữ.",
   L"Tệp hình ảnh (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Hủy", L"Chiều rộng:", L"Chiều cao:",
   L"Chọn màu tùy chỉnh", L"Kích thước khung vẽ", L"Tô đầy", L"Đầu tròn", L"Đầu vuông",
@@ -1166,7 +1186,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Đối xứng: phản chiếu nét vẽ qua trục dọc.\r\n\r\nPHÍM TẮT\r\n"
   L"Ctrl+S lưu, Ctrl+O mở, Ctrl+N mới, Ctrl+Z hoàn tác, Ctrl+Y làm lại, Ctrl+C sao chép, Ctrl+V dán.\r\n\r\n"
   L"HIỆU ỨNG\r\nMenu Hiệu ứng có 20 bộ lọc gồm thang xám, âm bản, nâu đỏ, mờ, nét, nổi và sơn dầu.\r\n"
-  L"Tệp có thể lưu dạng BMP 24-bit, PNG hoặc JPEG.\r\n\r\nTHAM CHIẾU HIỆU ỨNG\r\n"
+  L"Tệp có thể lưu dạng BMP, PNG, JPEG, GIF, TIFF hoặc ICO.\r\n\r\nTHAM CHIẾU HIỆU ỨNG\r\n"
   L"Thang xám: chuyển màu thành độ sáng. Âm bản: đảo mọi màu.\r\n"
   L"Nâu đỏ: tạo vẻ ảnh cũ. Làm mờ: áp dụng mờ hộp 3x3.\r\n"
   L"Làm nét: tăng độ nét cạnh. Pixel hóa: giảm ảnh thành khối 8x8.\r\n"
@@ -1181,7 +1201,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"H: Tại sao khung vẽ không nhấp nháy? Đ: Mọi thao tác vẽ đều dùng bộ đệm kép.\r\n",
   L"Mã &nguồn", L"Mã nguồn - MiniPaint",
   L"Màu nước", L"Ướt", L"Dầu", L"Bút chì", L"Thư pháp", L"Ruy băng",
-  L"Neon", L"Bóng", L"Tham chiếu", L"Tải...", L"Hiện/Ẩn", L"Xóa", L"Ổn định nét", L"Dither", L"Pixel hoàn hảo", L"Bảng pixel" },
+  L"Neon", L"Bóng", L"Tham chiếu", L"Tải...", L"Hiện/Ẩn", L"Xóa", L"Ổn định nét", L"Dither", L"Pixel hoàn hảo", L"Bảng pixel", L"G-Pen", L"Tone", L"Tốc độ", L"Bong bóng", L"Khung",
+  L"Không thể lưu tệp. Vị trí có thể chỉ-đọc hoặc đĩa đã đầy." },
 // ---- Tayca ----
 { L"ดินสอ", L"เส้น", L"สี่เหลี่ยม", L"วงรี", L"เติมสี", L"ยางลบ", L"ดูดสี",
   L"สเปรย์", L"สามเหลี่ยม", L"มุมมน", L"ดาว", L"ข้อความ", L"เลือก",
@@ -1200,8 +1221,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  เครื่องมือ: %s   สี: #%02X%02X%02X   ขนาด: %d   ซูม: %d%%   ตำแหน่ง: %d,%d   [Ctrl+S บันทึก, Ctrl+Z เลิกทำ]",
   L"ข้อผิดพลาด", L"ไม่สามารถเปิดไฟล์หรือรูปแบบไม่รองรับ",
   L"มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก ต้องการบันทึกก่อนออกหรือไม่?",
-  L"MiniPaint v2.1\n\nโปรแกรมวาดภาพที่เขียนขึ้นใหม่ทั้งหมด\nด้วย C++ ล้วนและ Win32 API\nไม่มีไลบรารีภายนอก\n\n"
-  L"มี 31 เครื่องมือ เลิกทำ 32 ขั้น 20 เอฟเฟกต์ ซูม สมมาตร\nรองรับ BMP/PNG/JPEG/GIF/TIFF/ICO และ 29 ภาษา",
+  L"MiniPaint v2.2\n\nโปรแกรมวาดภาพที่เขียนขึ้นใหม่ทั้งหมด\nด้วย C++ ล้วนและ Win32 API\nไม่มีไลบรารีภายนอก\n\n"
+  L"มี 36 เครื่องมือ เลิกทำ 32 ขั้น 20 เอฟเฟกต์ ซูม สมมาตร\nรองรับ BMP/PNG/JPEG/GIF/TIFF/ICO และ 29 ภาษา",
   L"ไฟล์รูปภาพ (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"ตกลง", L"ยกเลิก", L"ความกว้าง:", L"ความสูง:",
   L"เลือกสีแบบกำหนดเอง", L"ขนาดผืนผ้าใบ", L"เติมเต็ม", L"ปลายกลม", L"ปลายเหลี่ยม",
@@ -1222,7 +1243,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"สมมาตร: สะท้อนเส้นแปรงบนแกนตั้ง\r\n\r\nแป้นพิมพ์ลัด\r\n"
   L"Ctrl+S บันทึก, Ctrl+O เปิด, Ctrl+N ใหม่, Ctrl+Z เลิกทำ, Ctrl+Y ทำซ้ำ, Ctrl+C คัดลอก, Ctrl+V วาง\r\n\r\n"
   L"เอฟเฟกต์\r\nเมนูเอฟเฟกต์มี 20 ตัวกรอง เช่น โทนสีเทา เนกาทีฟ ซีเปีย เบลอ คมชัด นูน และสีน้ำมัน\r\n"
-  L"ไฟล์สามารถบันทึกเป็น BMP 24 บิต PNG หรือ JPEG\r\n\r\nข้อมูลอ้างอิงเอฟเฟกต์\r\n"
+  L"ไฟล์สามารถบันทึกเป็น BMP, PNG, JPEG, GIF, TIFF หรือ ICO\r\n\r\nข้อมูลอ้างอิงเอฟเฟกต์\r\n"
   L"โทนสีเทา: แปลงสีเป็นความสว่าง ภาพเนกาทีฟ: กลับทุกสี\r\n"
   L"ซีเปีย: ให้ลุคภาพเก่า เบลอ: ใช้เบลอแบบกล่อง 3x3\r\n"
   L"คมชัด: เน้นขอบ พิกเซล: ลดภาพเป็นบล็อก 8x8\r\n"
@@ -1237,7 +1258,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"ถาม: ทำไมผืนผ้าใบไม่กะพริบ? ตอบ: การวาดทั้งหมดใช้ดับเบิลบัฟเฟอร์\r\n",
   L"&ซอร์สโค้ด", L"ซอร์สโค้ด - MiniPaint",
   L"สีน้ำ", L"เปียก", L"สีน้ำมัน", L"ดินสอ", L"คาลิกราฟี", L"ริบบิ้น",
-  L"นีออน", L"เงา", L"ภาพอ้างอิง", L"โหลด...", L"แสดง/ซ่อน", L"ลบ", L"กันสั่น", L"ดิทเทอร์", L"พิกเซลสมบูรณ์", L"จานสีพิกเซล" },
+  L"นีออน", L"เงา", L"ภาพอ้างอิง", L"โหลด...", L"แสดง/ซ่อน", L"ลบ", L"กันสั่น", L"ดิทเทอร์", L"พิกเซลสมบูรณ์", L"จานสีพิกเซล", L"G-Pen", L"โทน", L"เร็ว", L"คำพูด", L"พาเนล",
+  L"ไม่สามารถบันทึกไฟล์ได้ ตำแหน่งอาจเป็นแบบอ่านอย่างเดียวหรือดิสก์เต็ม" },
 // ---- Yunanca ----
 { L"Μολύβι", L"Γραμμή", L"Πλαίσιο", L"Έλλειψη", L"Γέμισμα", L"Γόμα", L"Ανάληψη",
   L"Σπρέι", L"Τρίγωνο", L"Στρογγυλό", L"Αστέρι", L"Κείμενο", L"Επιλογή",
@@ -1256,8 +1278,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Εργαλείο: %s   Χρώμα: #%02X%02X%02X   Μέγεθος: %d   Ζουμ: %d%%   Θέση: %d,%d   [Ctrl+S Αποθήκευση, Ctrl+Z Αναίρεση]",
   L"Σφάλμα", L"Δεν ήταν δυνατό το άνοιγμα του αρχείου ή η μορφή δεν υποστηρίζεται.",
   L"Υπάρχουν μη αποθηκευμένες αλλαγές. Να αποθηκευτούν πριν από την έξοδο;",
-  L"MiniPaint v2.1\n\nΠρόγραμμα ζωγραφικής γραμμένο εξ ολοκλήρου από την αρχή\nσε καθαρή C++ και Win32 API.\nΧωρίς εξωτερικές βιβλιοθήκες.\n\n"
-  L"31 εργαλεία, αναίρεση 32 βημάτων, 20 εφέ, ζουμ, συμμετρία,\nυποστήριξη BMP/PNG/JPEG/GIF/TIFF/ICO και 29 γλώσσες.",
+  L"MiniPaint v2.2\n\nΠρόγραμμα ζωγραφικής γραμμένο εξ ολοκλήρου από την αρχή\nσε καθαρή C++ και Win32 API.\nΧωρίς εξωτερικές βιβλιοθήκες.\n\n"
+  L"36 εργαλεία, αναίρεση 32 βημάτων, 20 εφέ, ζουμ, συμμετρία,\nυποστήριξη BMP/PNG/JPEG/GIF/TIFF/ICO και 29 γλώσσες.",
   L"Αρχεία εικόνας (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Άκυρο", L"Πλάτος:", L"Ύψος:",
   L"Επιλογή προσαρμοσμένου χρώματος", L"Μέγεθος καμβά", L"Γεμισμένο", L"Στρογγυλή μύτη", L"Τετράγωνη μύτη",
@@ -1278,7 +1300,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Συμμετρία: καθρεπτίζει τις πινελιές στον κατακόρυφο άξονα.\r\n\r\nΣΥΝΤΟΜΕΥΣΕΙΣ\r\n"
   L"Ctrl+S αποθήκευση, Ctrl+O άνοιγμα, Ctrl+N νέο, Ctrl+Z αναίρεση, Ctrl+Y επανάληψη, Ctrl+C αντιγραφή, Ctrl+V επικόλληση.\r\n\r\n"
   L"ΕΦΕ\r\nΤο μενού Εφέ περιέχει 20 φίλτρα όπως ασπρόμαυρο, αρνητικό, σέπια, θόλωση, όξυνση, ανάγλυφο και ελαιογραφία.\r\n"
-  L"Τα αρχεία αποθηκεύονται ως BMP 24-bit, PNG ή JPEG.\r\n\r\nΑΝΑΦΟΡΑ ΕΦΕ\r\n"
+  L"Τα αρχεία αποθηκεύονται ως BMP, PNG, JPEG, GIF, TIFF ή ICO.\r\n\r\nΑΝΑΦΟΡΑ ΕΦΕ\r\n"
   L"Ασπρόμαυρο: μετατρέπει τα χρώματα σε φωτεινότητα. Αρνητικό: αντιστρέφει όλα τα χρώματα.\r\n"
   L"Σέπια: δίνει όψη παλιάς φωτογραφίας. Θόλωση: εφαρμόζει θόλωση πλαισίου 3x3.\r\n"
   L"Όξυνση: τονίζει τις ακμές. Εικονοστοιχεία: μειώνει την εικόνα σε μπλοκ 8x8.\r\n"
@@ -1293,7 +1315,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Ε: Γιατί δεν τρεμοπαίζει ο καμβάς; Α: Όλη η σχεδίαση γίνεται με διπλή προσωρινή αποθήκευση.\r\n",
   L"&Πηγαίος κώδικας", L"Πηγαίος κώδικας - MiniPaint",
   L"Ακουαρέλα", L"Υγρό", L"Λάδι", L"Μολύβι", L"Καλλιγρ", L"Κορδέλα",
-  L"Νέον", L"Σκιά", L"Αναφορά", L"Φόρτωση...", L"Εμφάνιση/Απόκρυψη", L"Αφαίρεση", L"Σταθεροποίηση", L"Ντίθερ", L"Τέλειο pixel", L"Παλέτα pixel" },
+  L"Νέον", L"Σκιά", L"Αναφορά", L"Φόρτωση...", L"Εμφάνιση/Απόκρυψη", L"Αφαίρεση", L"Σταθεροποίηση", L"Ντίθερ", L"Τέλειο pixel", L"Παλέτα pixel", L"G-Pen", L"Τόνος", L"Ταχύτητα", L"Φούσκα", L"Πάνελ",
+  L"Δεν ήταν δυνατή η αποθήκευση του αρχείου. Η τοποθεσία μπορεί να είναι μόνο για ανάγνωση ή ο δίσκος είναι γεμάτος." },
 // ---- Cekce ----
 { L"Tužka", L"Čára", L"Obdélník", L"Elipsa", L"Výplň", L"Guma", L"Kapátko",
   L"Sprej", L"Trojúhelník", L"Zaoblený", L"Hvězda", L"Text", L"Výběr",
@@ -1312,8 +1335,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Nástroj: %s   Barva: #%02X%02X%02X   Velikost: %d   Přiblížení: %d%%   Pozice: %d,%d   [Ctrl+S Uložit, Ctrl+Z Zpět]",
   L"Chyba", L"Soubor nelze otevřít nebo formát není podporován.",
   L"Existují neuložené změny. Chcete před ukončením uložit?",
-  L"MiniPaint v2.1\n\nMalovací program napsaný zcela od nuly\nv čistém C++ a Win32 API.\nBez externích knihoven.\n\n"
-  L"31 nástrojů, vracení o 32 kroků, 20 efektů, zoom, symetrie,\npodpora BMP/PNG/JPEG/GIF/TIFF/ICO a 29 jazyků.",
+  L"MiniPaint v2.2\n\nMalovací program napsaný zcela od nuly\nv čistém C++ a Win32 API.\nBez externích knihoven.\n\n"
+  L"36 nástrojů, vracení o 32 kroků, 20 efektů, zoom, symetrie,\npodpora BMP/PNG/JPEG/GIF/TIFF/ICO a 29 jazyků.",
   L"Soubory obrázků (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Storno", L"Šířka:", L"Výška:",
   L"Vybrat vlastní barvu", L"Velikost plátna", L"Vyplněno", L"Kulatá špička", L"Hranatá špička",
@@ -1334,7 +1357,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symetrie: zrcadlí tahy štětce ve svislé ose.\r\n\r\nZKRATKY\r\n"
   L"Ctrl+S uložit, Ctrl+O otevřít, Ctrl+N nový, Ctrl+Z zpět, Ctrl+Y znovu, Ctrl+C kopírovat, Ctrl+V vložit.\r\n\r\n"
   L"EFEKTY\r\nNabídka Efekty obsahuje 20 filtrů včetně odstínů šedi, negativu, sépie, rozmazání, zostření, reliéfu a olejomalby.\r\n"
-  L"Soubory lze uložit jako 24bitové BMP, PNG nebo JPEG.\r\n\r\nREFERENCE EFEKTŮ\r\n"
+  L"Soubory lze uložit jako BMP, PNG, JPEG, GIF, TIFF nebo ICO.\r\n\r\nREFERENCE EFEKTŮ\r\n"
   L"Odstíny šedi: převádí barvy na jas. Negativ: invertuje všechny barvy.\r\n"
   L"Sépie: vzhled staré fotografie. Rozmazání: aplikuje rámové rozmazání 3x3.\r\n"
   L"Zostření: zvýrazňuje hrany. Pixelace: redukuje obrázek na bloky 8x8.\r\n"
@@ -1349,7 +1372,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Ot: Proč plátno nebliká? Od: Veškeré kreslení používá dvojitou vyrovnávací paměť.\r\n",
   L"&Zdrojový kód", L"Zdrojový kód - MiniPaint",
   L"Akvarel", L"Mokrý", L"Olej", L"Tužka", L"Kaligr", L"Stuha",
-  L"Neon", L"Stín", L"Reference", L"Načíst...", L"Zobrazit/skrýt", L"Odebrat", L"Stabilizace", L"Rozptyl", L"Dokonalý pixel", L"Pixelová paleta" },
+  L"Neon", L"Stín", L"Reference", L"Načíst...", L"Zobrazit/skrýt", L"Odebrat", L"Stabilizace", L"Rozptyl", L"Dokonalý pixel", L"Pixelová paleta", L"G-Pen", L"Rastr", L"Rychlost", L"Bublina", L"Panel",
+  L"Soubor se nepodařilo uložit. Umístění může být jen pro čtení nebo je disk plný." },
 // ---- Isvecce ----
 { L"Penna", L"Linje", L"Ruta", L"Ellips", L"Fyllning", L"Suddgummi", L"Pipett",
   L"Spray", L"Triangel", L"Rundad", L"Stjärna", L"Text", L"Markering",
@@ -1368,8 +1392,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Verktyg: %s   Färg: #%02X%02X%02X   Storlek: %d   Zoom: %d%%   Position: %d,%d   [Ctrl+S Spara, Ctrl+Z Ångra]",
   L"Fel", L"Kunde inte öppna filen eller formatet stöds inte.",
   L"Det finns osparade ändringar. Vill du spara innan du avslutar?",
-  L"MiniPaint v2.1\n\nEtt ritprogram skrivet helt från grunden\ni ren C++ och Win32 API.\nInga externa bibliotek.\n\n"
-  L"31 verktyg, 32-stegs ångra, 20 effekter, zoom, symmetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO-stöd och 29 språk.",
+  L"MiniPaint v2.2\n\nEtt ritprogram skrivet helt från grunden\ni ren C++ och Win32 API.\nInga externa bibliotek.\n\n"
+  L"36 verktyg, 32-stegs ångra, 20 effekter, zoom, symmetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO-stöd och 29 språk.",
   L"Bildfiler (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Avbryt", L"Bredd:", L"Höjd:",
   L"Välj anpassad färg", L"Dukstorlek", L"Fylld", L"Rund spets", L"Fyrkantig spets",
@@ -1390,7 +1414,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symmetri: speglar penseldragen i den vertikala axeln.\r\n\r\nGENVÄGAR\r\n"
   L"Ctrl+S spara, Ctrl+O öppna, Ctrl+N nytt, Ctrl+Z ångra, Ctrl+Y gör om, Ctrl+C kopiera, Ctrl+V klistra in.\r\n\r\n"
   L"EFFEKT\r\nEffektmenyn innehåller 20 filter inklusive gråskala, negativ, sepia, oskärpa, skärpa, relief och oljemålning.\r\n"
-  L"Filer kan sparas som 24-bitars BMP, PNG eller JPEG.\r\n\r\nEFFEKTREFERENS\r\n"
+  L"Filer kan sparas som BMP, PNG, JPEG, GIF, TIFF eller ICO.\r\n\r\nEFFEKTREFERENS\r\n"
   L"Gråskala: omvandlar färger till ljusstyrka. Negativ: inverterar alla färger.\r\n"
   L"Sepia: ger gammalt fotoutseende. Oskärpa: tillämpar 3x3-lådokskärpa.\r\n"
   L"Skärpa: framhäver kanter. Pixla: reducerar bilden till 8x8-block.\r\n"
@@ -1405,7 +1429,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"F: Varför flimrar inte duken? S: All ritning använder dubbelbuffring.\r\n",
   L"&Källkod", L"Källkod - MiniPaint",
   L"Akvarell", L"Våt", L"Olja", L"Blyerts", L"Kalligr", L"Band",
-  L"Neon", L"Skugga", L"Referens", L"Ladda...", L"Visa/dölj", L"Ta bort", L"Stabilisering", L"Dither", L"Pixelperfekt", L"Pixelpalett" },
+  L"Neon", L"Skugga", L"Referens", L"Ladda...", L"Visa/dölj", L"Ta bort", L"Stabilisering", L"Dither", L"Pixelperfekt", L"Pixelpalett", L"G-Pen", L"Raster", L"Hastighet", L"Bubbla", L"Panel",
+  L"Det gick inte att spara filen. Platsen kan vara skrivskyddad eller disken full." },
 // ---- Macarca ----
 { L"Ceruza", L"Vonal", L"Téglalap", L"Ellipszis", L"Kitöltés", L"Radír", L"Pipetta",
   L"Permet", L"Háromszög", L"Lekerekített", L"Csillag", L"Szöveg", L"Kijelölés",
@@ -1424,8 +1449,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Eszköz: %s   Szín: #%02X%02X%02X   Méret: %d   Nagyítás: %d%%   Pozíció: %d,%d   [Ctrl+S Mentés, Ctrl+Z Visszavonás]",
   L"Hiba", L"A fájl nem nyitható meg, vagy a formátum nem támogatott.",
   L"Nem mentett módosítások vannak. Menti kilépés előtt?",
-  L"MiniPaint v2.1\n\nTeljesen a nulláról írt rajzprogram\ntiszta C++ és Win32 API használatával.\nKülső könyvtárak nélkül.\n\n"
-  L"31 eszköz, 32 lépéses visszavonás, 20 effekt, nagyítás, szimmetria,\nBMP/PNG/JPEG/GIF/TIFF/ICO támogatás és 29 nyelv.",
+  L"MiniPaint v2.2\n\nTeljesen a nulláról írt rajzprogram\ntiszta C++ és Win32 API használatával.\nKülső könyvtárak nélkül.\n\n"
+  L"36 eszköz, 32 lépéses visszavonás, 20 effekt, nagyítás, szimmetria,\nBMP/PNG/JPEG/GIF/TIFF/ICO támogatás és 29 nyelv.",
   L"Képfájlok (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Mégse", L"Szélesség:", L"Magasság:",
   L"Egyéni szín választása", L"Vászon mérete", L"Kitöltött", L"Kerek hegy", L"Szögletes hegy",
@@ -1446,7 +1471,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Szimmetria: tükrözi az ecsetvonásokat a függőleges tengelyen.\r\n\r\nGYORSBILLENTYŰK\r\n"
   L"Ctrl+S mentés, Ctrl+O megnyitás, Ctrl+N új, Ctrl+Z visszavonás, Ctrl+Y ismétlés, Ctrl+C másolás, Ctrl+V beillesztés.\r\n\r\n"
   L"EFFEKTUSOK\r\nAz Effektek menü 20 szűrőt tartalmaz: szürkeárnyalatos, negatív, szépia, elmosás, élesítés, domborítás és olajfesték.\r\n"
-  L"A fájlok 24 bites BMP, PNG vagy JPEG formátumban menthetők.\r\n\r\nEFFEKTUS REFERENCIA\r\n"
+  L"A fájlok BMP, PNG, JPEG, GIF, TIFF vagy ICO formátumban menthetők.\r\n\r\nEFFEKTUS REFERENCIA\r\n"
   L"Szürkeárnyalatos: a színeket fényerővé alakítja. Negatív: minden színt megfordít.\r\n"
   L"Szépia: régi fénykép hatást ad. Elmosás: 3x3-as dobozelmosást alkalmaz.\r\n"
   L"Élesítés: kiemeli az éleket. Pixelesítés: 8x8-as blokkokra redukálja a képet.\r\n"
@@ -1461,7 +1486,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"K: Miért nem villog a vászon? V: Minden rajzolás dupla pufferelést használ.\r\n",
   L"&Forráskód", L"Forráskód - MiniPaint",
   L"Akvarell", L"Nedves", L"Olaj", L"Ceruza", L"Kalligr", L"Szalag",
-  L"Neon", L"Árnyék", L"Referencia", L"Betöltés...", L"Mutat/Elrejt", L"Eltávolítás", L"Stabilizálás", L"Szórás", L"Tökéletes pixel", L"Pixelpaletta" },
+  L"Neon", L"Árnyék", L"Referencia", L"Betöltés...", L"Mutat/Elrejt", L"Eltávolítás", L"Stabilizálás", L"Szórás", L"Tökéletes pixel", L"Pixelpaletta", L"G-Pen", L"Raszter", L"Sebesség", L"Bubi", L"Panel",
+  L"A fájl mentése nem sikerült. Lehet, hogy a hely írásvédett vagy a lemez tele van." },
 // ---- Rumence ----
 { L"Creion", L"Linie", L"Casetă", L"Elipsă", L"Umplere", L"Radieră", L"Pipetă",
   L"Spray", L"Triunghi", L"Rotunjit", L"Stea", L"Text", L"Selecție",
@@ -1480,8 +1506,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Instrument: %s   Culoare: #%02X%02X%02X   Dimensiune: %d   Zoom: %d%%   Poziție: %d,%d   [Ctrl+S Salvare, Ctrl+Z Anulare]",
   L"Eroare", L"Fișierul nu a putut fi deschis sau formatul nu este acceptat.",
   L"Există modificări nesalvate. Doriți să salvați înainte de ieșire?",
-  L"MiniPaint v2.1\n\nUn program de desen scris integral de la zero\nîn C++ pur și Win32 API.\nFără biblioteci externe.\n\n"
-  L"31 de instrumente, anulare în 32 de pași, 20 de efecte, zoom, simetrie,\nsuport BMP/PNG/JPEG/GIF/TIFF/ICO și 29 de limbi.",
+  L"MiniPaint v2.2\n\nUn program de desen scris integral de la zero\nîn C++ pur și Win32 API.\nFără biblioteci externe.\n\n"
+  L"36 de instrumente, anulare în 32 de pași, 20 de efecte, zoom, simetrie,\nsuport BMP/PNG/JPEG/GIF/TIFF/ICO și 29 de limbi.",
   L"Fișiere imagine (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Anulare", L"Lățime:", L"Înălțime:",
   L"Alegere culoare personalizată", L"Dimensiune pânză", L"Umplut", L"Vârf rotund", L"Vârf pătrat",
@@ -1502,7 +1528,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Simetrie: oglindește penițele pe axa verticală.\r\n\r\nSCURTĂTURI\r\n"
   L"Ctrl+S salvare, Ctrl+O deschidere, Ctrl+N nou, Ctrl+Z anulare, Ctrl+Y refacere, Ctrl+C copiere, Ctrl+V lipire.\r\n\r\n"
   L"EFECTE\r\nMeniul Efecte conține 20 de filtre inclusiv tonuri de gri, negativ, sepia, estompare, accentuare, relief și pictură în ulei.\r\n"
-  L"Fișierele pot fi salvate ca BMP pe 24 de biți, PNG sau JPEG.\r\n\r\nREFERINȚĂ EFECTE\r\n"
+  L"Fișierele pot fi salvate ca BMP, PNG, JPEG, GIF, TIFF sau ICO.\r\n\r\nREFERINȚĂ EFECTE\r\n"
   L"Tonuri de gri: convertește culorile în luminozitate. Negativ: inversează toate culorile.\r\n"
   L"Sepia: dă aspect de fotografie veche. Estompare: aplică estompare cadru 3x3.\r\n"
   L"Accentuare: evidențiază marginile. Pixelizare: reduce imaginea la blocuri 8x8.\r\n"
@@ -1517,7 +1543,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Î: De ce nu pâlpâie pânza? R: Tot desenul folosește dublă bufferizare.\r\n",
   L"Cod &sursă", L"Cod sursă - MiniPaint",
   L"Acuarelă", L"Umed", L"Ulei", L"Creion", L"Caligraf", L"Panglică",
-  L"Neon", L"Umbră", L"Referință", L"Încarcă...", L"Afișează/Ascunde", L"Elimină", L"Stabilizare", L"Dither", L"Pixel perfect", L"Paletă pixel" },
+  L"Neon", L"Umbră", L"Referință", L"Încarcă...", L"Afișează/Ascunde", L"Elimină", L"Stabilizare", L"Dither", L"Pixel perfect", L"Paletă pixel", L"G-Pen", L"Raster", L"Viteză", L"Balon", L"Panou",
+  L"Fișierul nu a putut fi salvat. Locația poate fi doar pentru citire sau discul este plin." },
 // ---- Danca ----
 { L"Blyant", L"Linje", L"Kasse", L"Ellipse", L"Udfyld", L"Viskelæder", L"Pipette",
   L"Spray", L"Trekant", L"Afrundet", L"Stjerne", L"Tekst", L"Markering",
@@ -1536,8 +1563,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Værktøj: %s   Farve: #%02X%02X%02X   Størrelse: %d   Zoom: %d%%   Position: %d,%d   [Ctrl+S Gem, Ctrl+Z Fortryd]",
   L"Fejl", L"Filen kunne ikke åbnes, eller formatet understøttes ikke.",
   L"Der er ikke-gemte ændringer. Vil du gemme før afslutning?",
-  L"MiniPaint v2.1\n\nEt maleprogram skrevet helt fra bunden\ni ren C++ og Win32 API.\nIngen eksterne biblioteker.\n\n"
-  L"31 værktøjer, 32-trins fortryd, 20 effekter, zoom, symmetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO-understøttelse og 29 sprog.",
+  L"MiniPaint v2.2\n\nEt maleprogram skrevet helt fra bunden\ni ren C++ og Win32 API.\nIngen eksterne biblioteker.\n\n"
+  L"36 værktøjer, 32-trins fortryd, 20 effekter, zoom, symmetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO-understøttelse og 29 sprog.",
   L"Billedfiler (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Annuller", L"Bredde:", L"Højde:",
   L"Vælg brugerdefineret farve", L"Lærredstørrelse", L"Udfyldt", L"Rund spids", L"Firkantet spids",
@@ -1558,7 +1585,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symmetri: spejler penselstrøg i den lodrette akse.\r\n\r\nGENVEJE\r\n"
   L"Ctrl+S gem, Ctrl+O åbn, Ctrl+N ny, Ctrl+Z fortryd, Ctrl+Y gentag, Ctrl+C kopiér, Ctrl+V sæt ind.\r\n\r\n"
   L"EFFEKTER\r\nEffektmenuen indeholder 20 filtre herunder gråtoner, negativ, sepia, sløring, skarphed, relief og oliemaling.\r\n"
-  L"Filer kan gemmes som 24-bit BMP, PNG eller JPEG.\r\n\r\nEFEKTREFERENCE\r\n"
+  L"Filer kan gemmes som BMP, PNG, JPEG, GIF, TIFF eller ICO.\r\n\r\nEFEKTREFERENCE\r\n"
   L"Gråtoner: konverterer farver til lysstyrke. Negativ: inverterer alle farver.\r\n"
   L"Sepia: giver et gammelt foto-look. Sløring: anvender 3x3-bokssløring.\r\n"
   L"Skarphed: fremhæver kanter. Pixélér: reducerer billedet til 8x8-blokke.\r\n"
@@ -1573,7 +1600,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"S: Hvorfor blinker lærredet ikke? A: Al tegning bruger dobbeltbuffering.\r\n",
   L"&Kildekode", L"Kildekode - MiniPaint",
   L"Akvarel", L"Våd", L"Olie", L"Blyant", L"Kalligr", L"Bånd",
-  L"Neon", L"Skygge", L"Reference", L"Indlæs...", L"Vis/skjul", L"Fjern", L"Stabilisering", L"Dither", L"Pixelperfekt", L"Pixelpalet" },
+  L"Neon", L"Skygge", L"Reference", L"Indlæs...", L"Vis/skjul", L"Fjern", L"Stabilisering", L"Dither", L"Pixelperfekt", L"Pixelpalet", L"G-Pen", L"Raster", L"Hastighed", L"Boble", L"Panel",
+  L"Filen kunne ikke gemmes. Placeringen er muligvis skrivebeskyttet, eller disken er fuld." },
 // ---- Fince ----
 { L"Lyijykynä", L"Viiva", L"Laatikko", L"Ellipsi", L"Täyttö", L"Pyyhekumi", L"Pipetti",
   L"Suihke", L"Kolmio", L"Pyöristetty", L"Tähti", L"Teksti", L"Valinta",
@@ -1592,8 +1620,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Työkalu: %s   Väri: #%02X%02X%02X   Koko: %d   Zoomaus: %d%%   Sijainti: %d,%d   [Ctrl+S Tallenna, Ctrl+Z Kumoa]",
   L"Virhe", L"Tiedostoa ei voitu avata tai muotoa ei tueta.",
   L"Tallentamattomia muutoksia on. Haluatko tallentaa ennen poistumista?",
-  L"MiniPaint v2.1\n\nTäysin alusta kirjoitettu piirto-ohjelma\npuhtaalla C++:lla ja Win32 API:lla.\nEi ulkoisia kirjastoja.\n\n"
-  L"31 työkalua, 32-askeleen kumoaminen, 20 tehostetta, zoomaus, symmetria,\nBMP/PNG/JPEG/GIF/TIFF/ICO-tuki ja 29 kieltä.",
+  L"MiniPaint v2.2\n\nTäysin alusta kirjoitettu piirto-ohjelma\npuhtaalla C++:lla ja Win32 API:lla.\nEi ulkoisia kirjastoja.\n\n"
+  L"36 työkalua, 32-askeleen kumoaminen, 20 tehostetta, zoomaus, symmetria,\nBMP/PNG/JPEG/GIF/TIFF/ICO-tuki ja 29 kieltä.",
   L"Kuvatiedostot (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Peruuta", L"Leveys:", L"Korkeus:",
   L"Valitse mukautettu väri", L"Kankaan koko", L"Täytetty", L"Pyöreä kärki", L"Neliökärki",
@@ -1614,7 +1642,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symmetria: peilaa siveltimen vedot pystyakselilla.\r\n\r\nPIKANÄPPÄIMET\r\n"
   L"Ctrl+S tallenna, Ctrl+O avaa, Ctrl+N uusi, Ctrl+Z kumoa, Ctrl+Y tee uudelleen, Ctrl+C kopioi, Ctrl+V liitä.\r\n\r\n"
   L"TEHOSTEET\r\nTehosteet-valikossa on 20 suodinta mukaan lukien harmaasävyt, negatiivi, seepia, sumennus, terävöitys, kohokuvio ja öljymaalaus.\r\n"
-  L"Tiedostot voidaan tallentaa 24-bittisenä BMP:nä, PNG:nä tai JPEG:nä.\r\n\r\nTEHOSTEVIITE\r\n"
+  L"Tiedostot voidaan tallentaa muodossa BMP, PNG, JPEG, GIF, TIFF tai ICO.\r\n\r\nTEHOSTEVIITE\r\n"
   L"Harmaasävyt: muuntaa värit kirkkaudeksi. Negatiivi: kääntää kaikki värit.\r\n"
   L"Seepia: antaa vanhan valokuvan ilmeen. Sumennus: soveltaa 3x3-laatikkósumennusta.\r\n"
   L"Terävöitys: korostaa reunoja. Pikselöinti: pelkistää kuvan 8x8-lohkoihin.\r\n"
@@ -1629,7 +1657,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"K: Miksi kangas ei vilku? V: Kaikki piirto käyttää kaksoispuskurointia.\r\n",
   L"&Lähdekoodi", L"Lähdekoodi - MiniPaint",
   L"Akvarelli", L"Märkä", L"Öljy", L"Lyijy", L"Kalligr", L"Nauha",
-  L"Neon", L"Varjo", L"Viite", L"Lataa...", L"Näytä/Piilota", L"Poista", L"Vakautus", L"Dither", L"Täydellinen pikseli", L"Pikselipaletti" },
+  L"Neon", L"Varjo", L"Viite", L"Lataa...", L"Näytä/Piilota", L"Poista", L"Vakautus", L"Dither", L"Täydellinen pikseli", L"Pikselipaletti", L"G-Pen", L"Rasteri", L"Nopeus", L"Kupla", L"Paneeli",
+  L"Tiedostoa ei voitu tallentaa. Sijainti voi olla vain luku -tilassa tai levy on täynnä." },
 // ---- Norveççe ----
 { L"Blyant", L"Linje", L"Boks", L"Ellipse", L"Fyll", L"Viskelær", L"Pipette",
   L"Spray", L"Trekant", L"Avrundet", L"Stjerne", L"Tekst", L"Utvalg",
@@ -1648,8 +1677,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Verktøy: %s   Farge: #%02X%02X%02X   Størrelse: %d   Zoom: %d%%   Posisjon: %d,%d   [Ctrl+S Lagre, Ctrl+Z Angre]",
   L"Feil", L"Kunne ikke åpne filen, eller formatet støttes ikke.",
   L"Det finnes ulagrede endringer. Vil du lagre før du avslutter?",
-  L"MiniPaint v2.1\n\nEt maleprogram skrevet helt fra bunnen av\ni ren C++ og Win32 API.\nIngen eksterne biblioteker.\n\n"
-  L"31 verktøy, 32-stegs angre, 20 effekter, zoom, symmetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO-støtte og 29 språk.",
+  L"MiniPaint v2.2\n\nEt maleprogram skrevet helt fra bunnen av\ni ren C++ og Win32 API.\nIngen eksterne biblioteker.\n\n"
+  L"36 verktøy, 32-stegs angre, 20 effekter, zoom, symmetri,\nBMP/PNG/JPEG/GIF/TIFF/ICO-støtte og 29 språk.",
   L"Bildefiler (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Avbryt", L"Bredde:", L"Høyde:",
   L"Velg egendefinert farge", L"Lerretsstørrelse", L"Fylt", L"Rund spiss", L"Firkantet spiss",
@@ -1670,7 +1699,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Symmetri: speiler penselstrøk i den vertikale aksen.\r\n\r\nSNARVEIER\r\n"
   L"Ctrl+S lagre, Ctrl+O åpne, Ctrl+N ny, Ctrl+Z angre, Ctrl+Y gjenta, Ctrl+C kopier, Ctrl+V lim inn.\r\n\r\n"
   L"EFFEKTER\r\nEffektmenyen inneholder 20 filtre inkludert gråtoner, negativ, sepia, uskarphet, skarphet, relief og oljemaling.\r\n"
-  L"Filer kan lagres som 24-biters BMP, PNG eller JPEG.\r\n\r\nEFEKTREFERANSE\r\n"
+  L"Filer kan lagres som BMP, PNG, JPEG, GIF, TIFF eller ICO.\r\n\r\nEFEKTREFERANSE\r\n"
   L"Gråtoner: konverterer farger til lysstyrke. Negativ: inverterer alle farger.\r\n"
   L"Sepia: gir et gammelt fotoutseende. Uskarphet: bruker 3x3-boksuskarphet.\r\n"
   L"Gjør skarpere: fremhever kanter. Pikselering: reduserer bildet til 8x8-blokker.\r\n"
@@ -1685,7 +1714,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"S: Hvorfor blinker ikke lerretet? S: All tegning bruker dobbeltbufre.\r\n",
   L"&Kildekode", L"Kildekode - MiniPaint",
   L"Akvarell", L"Våt", L"Olje", L"Blyant", L"Kalligr", L"Bånd",
-  L"Neon", L"Skygge", L"Referanse", L"Last...", L"Vis/skjul", L"Fjern", L"Stabilisering", L"Dither", L"Pixelperfekt", L"Pixelpalett" },
+  L"Neon", L"Skygge", L"Referanse", L"Last...", L"Vis/skjul", L"Fjern", L"Stabilisering", L"Dither", L"Pixelperfekt", L"Pixelpalett", L"G-Pen", L"Raster", L"Hastighet", L"Boble", L"Panel",
+  L"Kunne ikke lagre filen. Plasseringen kan være skrivebeskyttet eller disken full." },
 // ---- Bulgarca ----
 { L"Молив", L"Линия", L"Кутия", L"Елипса", L"Запълване", L"Гума", L"Пипетка",
   L"Спрей", L"Триъгълник", L"Заоблен", L"Звезда", L"Текст", L"Избор",
@@ -1704,8 +1734,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Инструмент: %s   Цвят: #%02X%02X%02X   Размер: %d   Увеличение: %d%%   Позиция: %d,%d   [Ctrl+S Запази, Ctrl+Z Отмяна]",
   L"Грешка", L"Файлът не може да бъде отворен или форматът не се поддържа.",
   L"Има незапазени промени. Искате ли да запазите преди изход?",
-  L"MiniPaint v2.1\n\nПрограма за рисуване, написана изцяло от нулата\nна чист C++ и Win32 API.\nБез външни библиотеки.\n\n"
-  L"31 инструмента, отмяна на 32 стъпки, 20 ефекта, увеличение, симетрия,\nподдръжка на BMP/PNG/JPEG/GIF/TIFF/ICO и 29 езика.",
+  L"MiniPaint v2.2\n\nПрограма за рисуване, написана изцяло от нулата\nна чист C++ и Win32 API.\nБез външни библиотеки.\n\n"
+  L"36 инструмента, отмяна на 32 стъпки, 20 ефекта, увеличение, симетрия,\nподдръжка на BMP/PNG/JPEG/GIF/TIFF/ICO и 29 езика.",
   L"Файлове с изображения (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Отказ", L"Ширина:", L"Височина:",
   L"Избор на цвят", L"Размер на платното", L"Запълнено", L"Кръгъл връх", L"Квадратен връх",
@@ -1726,7 +1756,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Симетрия: огледално отразява мазките във вертикалната ос.\r\n\r\nПРЕКИ ПЪТИЩА\r\n"
   L"Ctrl+S запази, Ctrl+O отвори, Ctrl+N нов, Ctrl+Z отмяна, Ctrl+Y повтори, Ctrl+C копирай, Ctrl+V постави.\r\n\r\n"
   L"ЕФЕКТИ\r\nМенюто Ефекти съдържа 20 филтъра, включително сиви тонове, негатив, сепия, размазване, изостряне, релеф и маслена живопис.\r\n"
-  L"Файловете могат да се запазват като 24-битов BMP, PNG или JPEG.\r\n\r\nСПРАВКА ЗА ЕФЕКТИТЕ\r\n"
+  L"Файловете могат да се запазват като BMP, PNG, JPEG, GIF, TIFF или ICO.\r\n\r\nСПРАВКА ЗА ЕФЕКТИТЕ\r\n"
   L"Сиви тонове: преобразува цветовете в яркост. Негатив: обръща всички цветове.\r\n"
   L"Сепия: придава вид на стара снимка. Размазване: прилага рамково размазване 3x3.\r\n"
   L"Изостряне: подчертава ръбовете. Пикселизиране: свежда изображението до блокове 8x8.\r\n"
@@ -1741,7 +1771,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"В: Защо платното не трепти? О: Цялото рисуване използва двойно буфериране.\r\n",
   L"&Изходен код", L"Изходен код - MiniPaint",
   L"Акварел", L"Мокър", L"Масло", L"Молив", L"Калигр", L"Лента",
-  L"Неон", L"Сянка", L"Референция", L"Зареди...", L"Покажи/скрий", L"Премахни", L"Стабилизатор", L"Дизеринг", L"Перфектен пиксел", L"Пикселна палитра" },
+  L"Неон", L"Сянка", L"Референция", L"Зареди...", L"Покажи/скрий", L"Премахни", L"Стабилизатор", L"Дизеринг", L"Перфектен пиксел", L"Пикселна палитра", L"G-перо", L"Тон", L"Скорост", L"Балон", L"Панел",
+  L"Файлът не можа да бъде запазен. Възможно е мястото да е само за четене или дискът да е пълен." },
 // ---- Hirvatça ----
 { L"Olovka", L"Linija", L"Okvir", L"Elipsa", L"Ispuna", L"Brisač", L"Kapaljka",
   L"Sprej", L"Trokut", L"Zaobljeni", L"Zvijezda", L"Tekst", L"Odabir",
@@ -1760,8 +1791,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"  Alat: %s   Boja: #%02X%02X%02X   Veličina: %d   Zum: %d%%   Položaj: %d,%d   [Ctrl+S Spremi, Ctrl+Z Poništi]",
   L"Greška", L"Datoteka se ne može otvoriti ili format nije podržan.",
   L"Postoje nespremljene promjene. Želite li spremiti prije izlaska?",
-  L"MiniPaint v2.1\n\nProgram za crtanje napisan potpuno od nule\nu čistom C++ i Win32 API-ju.\nBez vanjskih biblioteka.\n\n"
-  L"31 alata, poništavanje u 32 koraka, 20 efekata, zum, simetrija,\npodrška za BMP/PNG/JPEG/GIF/TIFF/ICO i 29 jezika.",
+  L"MiniPaint v2.2\n\nProgram za crtanje napisan potpuno od nule\nu čistom C++ i Win32 API-ju.\nBez vanjskih biblioteka.\n\n"
+  L"36 alata, poništavanje u 32 koraka, 20 efekata, zum, simetrija,\npodrška za BMP/PNG/JPEG/GIF/TIFF/ICO i 29 jezika.",
   L"Datoteke slika (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif;*.tiff;*.ico\0Bitmap (*.bmp)\0*.bmp\0PNG (*.png)\0*.png\0JPEG (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0GIF (*.gif)\0*.gif\0TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0ICO (*.ico)\0*.ico\0",
   L"OK", L"Odustani", L"Širina:", L"Visina:",
   L"Odabir prilagođene boje", L"Veličina platna", L"Ispunjeno", L"Okrugli vrh", L"Četvrtasti vrh",
@@ -1782,7 +1813,7 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"Simetrija: zrcali poteze kista u okomitoj osi.\r\n\r\nPREČACI\r\n"
   L"Ctrl+S spremi, Ctrl+O otvori, Ctrl+N novo, Ctrl+Z poništi, Ctrl+Y ponovi, Ctrl+C kopiraj, Ctrl+V zalijepi.\r\n\r\n"
   L"EFEKTI\r\nIzbornik Efekti sadrži 20 filtara uključujući sive nijanse, negativ, sepiju, zamućenje, izoštravanje, reljef i ulje na platnu.\r\n"
-  L"Datoteke se mogu spremiti kao 24-bitni BMP, PNG ili JPEG.\r\n\r\nREFERENCA EFEKATA\r\n"
+  L"Datoteke se mogu spremiti kao BMP, PNG, JPEG, GIF, TIFF ili ICO.\r\n\r\nREFERENCA EFEKATA\r\n"
   L"Sive nijanse: pretvara boje u svjetlinu. Negativ: obrće sve boje.\r\n"
   L"Sepija: daje izgled stare fotografije. Zamućenje: primjenjuje zamućenje okvira 3x3.\r\n"
   L"Izoštravanje: ističe rubove. Pikselizacija: svodi sliku na blokove 8x8.\r\n"
@@ -1797,7 +1828,8 @@ static const wchar_t* METIN[DIL_SAYISI][M_METIN_SAYISI] = {
   L"P: Zašto platno ne treperi? O: Svo crtanje koristi dvostruko spremanje.\r\n",
   L"&Izvorni kod", L"Izvorni kod - MiniPaint",
   L"Akvarel", L"Mokro", L"Ulje", L"Olovka", L"Kaligraf", L"Vrpca",
-  L"Neon", L"Sjena", L"Referenca", L"Učitaj...", L"Prikaži/sakrij", L"Ukloni", L"Stabilizacija", L"Dither", L"Savršeni piksel", L"Pikselna paleta" }
+  L"Neon", L"Sjena", L"Referenca", L"Učitaj...", L"Prikaži/sakrij", L"Ukloni", L"Stabilizacija", L"Dither", L"Savršeni piksel", L"Pikselna paleta", L"G-Pen", L"Raster", L"Brzina", L"Balon", L"Panel",
+  L"Datoteku nije bilo moguće spremiti. Lokacija je možda samo za čitanje ili je disk pun." }
 };
 
 // ------------------------------------------------------------
@@ -1824,6 +1856,8 @@ struct Uygulama {
     COLORREF  renk2;           // ikincil renk (sag tus / silgi zemini)
     COLORREF  islakRenk;       // islak karisim fircasinin tasidigi boya
     float     islakBoya;       // fircadaki boya miktari (0..1, surudukce azalir)
+    double    gpenKal;         // G-Pen: anlik yumusatilmis kalinlik
+    DWORD     gpenTick;        // G-Pen: onceki vurus zamani (hiz olcumu)
     int       kalinlik;
     bool      dolu;            // sekiller ici dolu mu
     bool      kareUc;          // firca ucu: kare mi yuvarlak mi
@@ -1898,6 +1932,11 @@ static HBITMAP g_gecBMP[GECMIS_MAX] = {};
 static HBITMAP g_gecEski[GECMIS_MAX]= {};
 static int     g_gecSayi  = 0;
 static int     g_gecKonum = 0;
+// Her kayit kendi donemindeki tuval boyutunu saklar; boylece dondurme ve
+// boyutlandirma gibi boyut degistiren islemler de geri alinabilir ve geri
+// alma gecmisi boyut degisiminde SILINMEZ (eskiden hepsi kayboluyordu).
+static int     g_gecW[GECMIS_MAX]   = {};
+static int     g_gecH[GECMIS_MAX]   = {};
 
 static const wchar_t* T(int id) { return METIN[g.dil][id]; }
 
@@ -1922,7 +1961,8 @@ static const int ARAC_METIN_ESLE[ARAC_SAYISI] = {
     M_ARAC_COKGEN, M_ARAC_BULANIK, M_ARAC_DAMGA,
     M_ARAC_SULUBOYA, M_ARAC_ISLAK, M_ARAC_YAGLI,
     M_ARAC_KARAKALEM, M_ARAC_KALIGRAFI, M_ARAC_SERIT,
-    M_ARAC_NEON, M_ARAC_GOLGE, M_ARAC_DITHER
+    M_ARAC_NEON, M_ARAC_GOLGE, M_ARAC_DITHER,
+    M_ARAC_GPEN, M_ARAC_TON, M_ARAC_HIZCIZGI, M_ARAC_BALON, M_ARAC_PANEL
 };
 
 static int ZoomPct() { return ZOOM_ADIM[g.zoomIdx]; }
@@ -1966,6 +2006,7 @@ static void GecmisPush()
         GecmisSil(0);
         for (int i = 1; i < GECMIS_MAX; i++) {
             g_gecDC[i-1] = g_gecDC[i]; g_gecBMP[i-1] = g_gecBMP[i]; g_gecEski[i-1] = g_gecEski[i];
+            g_gecW[i-1] = g_gecW[i]; g_gecH[i-1] = g_gecH[i];
             g_gecDC[i] = NULL;
         }
         g_gecSayi--; g_gecKonum--;
@@ -1984,6 +2025,7 @@ static void GecmisPush()
     }
     g_gecEski[i] = (HBITMAP)SelectObject(g_gecDC[i], g_gecBMP[i]);
     BitBlt(g_gecDC[i], 0, 0, g.tuvalW, g.tuvalH, g.tuvalDC, 0, 0, SRCCOPY);
+    g_gecW[i] = g.tuvalW; g_gecH[i] = g.tuvalH;
     ReleaseDC(NULL, ekran);
     g_gecKonum++; g_gecSayi = g_gecKonum;
 }
@@ -2012,6 +2054,11 @@ static void GecmisTakas(int i)
     SelectObject(g_gecDC[i], A);             // A serbest: gecmise tak
     g.tuvalBMP  = B;
     g_gecBMP[i] = A;
+    // Tuval boyutlari da birlikte takaslanir: boyut degistiren islemlerin
+    // (dondurme/boyutlandirma) geri alinmasi tuvale eski boyutunu iade eder
+    int tw = g.tuvalW, th = g.tuvalH;
+    g.tuvalW = g_gecW[i]; g.tuvalH = g_gecH[i];
+    g_gecW[i] = tw; g_gecH[i] = th;
 }
 
 static void GeriAl()
@@ -2035,7 +2082,10 @@ static void Yinele()
 // ------------------------------------------------------------
 //  Tuval yonetimi
 // ------------------------------------------------------------
-static void TuvalOlustur(int w, int h, COLORREF zemin)
+// gecmisKoru=true ise geri alma gecmisi silinmez; cagiran islem
+// (dondurme/boyutlandirma) kendisi GecmisPush yapar ve boyut degisimi de
+// geri alinabilir olur. Donus: yeni tuval basariyla olusturulduysa true.
+static bool TuvalOlustur(int w, int h, COLORREF zemin, bool gecmisKoru = false)
 {
     HDC ekran = GetDC(NULL);
     HBITMAP yeni = CreateCompatibleBitmap(ekran, w, h);
@@ -2046,7 +2096,7 @@ static void TuvalOlustur(int w, int h, COLORREF zemin)
         if (yeni) DeleteObject(yeni);
         if (yeniDC) DeleteDC(yeniDC);
         ReleaseDC(NULL, ekran);
-        return;
+        return false;
     }
     HBITMAP yeniEski = (HBITMAP)SelectObject(yeniDC, yeni);
     HBRUSH f = CreateSolidBrush(zemin);
@@ -2064,8 +2114,9 @@ static void TuvalOlustur(int w, int h, COLORREF zemin)
     }
     g.tuvalBMP = yeni; g.tuvalDC = yeniDC; g.eskiBMP = yeniEski;
     g.tuvalW = w; g.tuvalH = h;
-    GecmisTemizle();  // boyut degisti: gecmis artik gecersiz
+    if (!gecmisKoru) GecmisTemizle();  // yeni belge: eski tuvalin gecmisi anlamsiz
     ReleaseDC(NULL, ekran);
+    return true;
 }
 
 // ------------------------------------------------------------
@@ -2471,6 +2522,87 @@ static void YumusakVurus(int x0, int y0, int x1, int y1, COLORREF renk, int kal)
     BolgeYaz(xA, yA, w, h);
 }
 
+// --- G-Pen: hiza duyarli murekkep kalemi (manga/anime murekkeplemesi) ---
+// Yavas surukleme kalin, hizli surukleme (fiske) ince cizgi uretir;
+// kalinlik gecisleri yumusatilir, boylece gercek G-pen ucu hissi verir.
+static void GPenVurus(int x0, int y0, int x1, int y1, COLORREF renk)
+{
+    DWORD simdi = GetTickCount();
+    double dx = x1 - x0, dy = y1 - y0;
+    double dis = sqrt(dx * dx + dy * dy);
+    DWORD dt = simdi - g.gpenTick;
+    if (dt == 0) dt = 1;
+    g.gpenTick = simdi;
+    double hiz = dis / dt;                            // piksel / ms
+    double hedef = g.kalinlik * (1.15 - hiz * 0.35);  // hiz arttikca incelir
+    double alt = g.kalinlik / 5.0;
+    if (alt < 1.0) alt = 1.0;
+    if (hedef < alt) hedef = alt;
+    if (hedef > g.kalinlik) hedef = g.kalinlik;
+    g.gpenKal += (hedef - g.gpenKal) * 0.45;          // yumusak gecis
+    int k = (int)(g.gpenKal + 0.5);
+    if (k < 1) k = 1;
+    CizgiCiz(g.tuvalDC, x0, y0, x1, y1, renk, k);
+    if (g.simetri)
+        CizgiCiz(g.tuvalDC, g.tuvalW - 1 - x0, y0, g.tuvalW - 1 - x1, y1, renk, k);
+}
+
+// --- Screentone: manga yarim-ton nokta deseni ---
+// Noktalar tuval-sabit bir izgaraya oturur; ust uste vuruslarda desen
+// kaymaz ve ayni nokta iki kez basilmaz (koyulasmaz) - gercek ton kagidi gibi.
+static void TonDamga(int cx, int cy, COLORREF renk)
+{
+    int kal = g.kalinlik;
+    int aralik = 8 + kal / 2;                         // izgara araligi
+    int r = 16 + kal;                                 // firca yaricapi
+    int noktaR = 2 + kal / 8;                         // nokta yaricapi
+    int xA = cx - r, yA = cy - r;
+    if (xA < 0) xA = 0;
+    if (yA < 0) yA = 0;
+    int xB = cx + r, yB = cy + r;
+    if (xB >= g.tuvalW) xB = g.tuvalW - 1;
+    if (yB >= g.tuvalH) yB = g.tuvalH - 1;
+    int w = xB - xA + 1, h = yB - yA + 1;
+    if (w <= 0 || h <= 0) return;
+    BYTE* buf = BolgeAl(xA, yA, w, h);
+    if (!buf) return;
+    size_t adim = (size_t)g_bolgeW * 4;
+    BYTE nb = GetBValue(renk), ng = GetGValue(renk), nr2 = GetRValue(renk);
+    int r2 = r * r;
+    for (int gy = (yA / aralik) * aralik; gy <= yB; gy += aralik) {
+        for (int gx = (xA / aralik) * aralik; gx <= xB; gx += aralik) {
+            int ddx = gx - cx, ddy = gy - cy;
+            if (ddx * ddx + ddy * ddy > r2) continue;
+            for (int oy = -noktaR; oy <= noktaR; oy++) {
+                int py = gy + oy - yA;
+                if (py < 0 || py >= h) continue;
+                for (int ox = -noktaR; ox <= noktaR; ox++) {
+                    if (ox * ox + oy * oy > noktaR * noktaR) continue;
+                    int px = gx + ox - xA;
+                    if (px < 0 || px >= w) continue;
+                    BYTE* p = buf + (size_t)py * adim + (size_t)px * 4;
+                    p[0] = nb; p[1] = ng; p[2] = nr2;
+                }
+            }
+        }
+    }
+    BolgeYaz(xA, yA, w, h);
+}
+
+static void TonVurus(int x0, int y0, int x1, int y1, COLORREF renk)
+{
+    double dx = x1 - x0, dy = y1 - y0;
+    double len = sqrt(dx * dx + dy * dy);
+    int aralik = 8 + g.kalinlik / 2;
+    int n = (int)(len / (aralik / 2.0)) + 1;          // izgarayla ayni ritim
+    for (int i = 0; i <= n; i++) {
+        double t = (double)i / n;
+        int px = (int)(x0 + dx * t + 0.5), py = (int)(y0 + dy * t + 0.5);
+        TonDamga(px, py, renk);
+        if (g.simetri) TonDamga(g.tuvalW - 1 - px, py, renk);
+    }
+}
+
 // Noktanin dogru parcasina olan uzakligi
 static double NoktaSegmanUzaklik(double px, double py, double x0, double y0, double x1, double y1)
 {
@@ -2547,7 +2679,7 @@ static void IslakBolge(int x0, int y0, int x1, int y1)
     if (!buf) return;
     int tr = GetRValue(g.islakRenk), tg = GetGValue(g.islakRenk), tb = GetBValue(g.islakRenk);
     long topR = 0, topG = 0, topB = 0; int sayac = 0;
-    double yuk = 0.15 + 0.45 * g.islakBoya;   // firca bosaldikca iz solar
+    double yuk = 0.15 + 0.45 * (double)g.islakBoya;   // firca bosaldikca iz solar
     size_t adim = (size_t)g_bolgeW * 4;
     for (int py = 0; py < h; py++) {
         BYTE* satir = buf + (size_t)py * adim;
@@ -2868,7 +3000,8 @@ static bool SekilMi(Arac a)
     return a == ARAC_CIZGI || a == ARAC_DIKDORTGEN || a == ARAC_ELIPS ||
            a == ARAC_UCGEN || a == ARAC_YUVARLAK || a == ARAC_YILDIZ ||
            a == ARAC_ELMAS || a == ARAC_BESGEN || a == ARAC_ALTIGEN ||
-           a == ARAC_OK || a == ARAC_KALP;
+           a == ARAC_OK || a == ARAC_KALP ||
+           a == ARAC_HIZCIZGI || a == ARAC_BALON || a == ARAC_PANEL;
 }
 
 // Duzenli cokgen noktalari (ustten baslar)
@@ -2984,6 +3117,73 @@ static void SekilCiz(HDC dc, Arac arac, POINT a, POINT b, COLORREF renk, int kal
         Polygon(dc, kp, 48);
         break;
     }
+    case ARAC_HIZCIZGI: {
+        // Hiz cizgileri: surukleme merkezinden disa dogru radyal cizgiler
+        // (manga aksiyon efekti). Tohum uclardan uretilir; boylece onizleme
+        // her boyamada ayni cizgileri gosterir (titresim olmaz).
+        double dx = b.x - a.x, dy = b.y - a.y;
+        double len = sqrt(dx * dx + dy * dy);
+        if (len < 4) break;
+        unsigned tohum = (unsigned)(a.x * 73856093) ^ (unsigned)(a.y * 19349663) ^
+                         (unsigned)(b.x * 83492791) ^ (unsigned)(b.y * 2654435761u);
+        const int N = 42;
+        for (int i = 0; i < N; i++) {
+            tohum = tohum * 1664525u + 1013904223u;   // LCG: tekrarlanabilir
+            double aci = (i + ((tohum >> 8) % 100) / 100.0) * 2.0 * 3.14159265358979 / N;
+            tohum = tohum * 1664525u + 1013904223u;
+            double ic = len * (0.15 + 0.25 * ((tohum >> 8) % 100) / 100.0);
+            tohum = tohum * 1664525u + 1013904223u;
+            double dis2 = len * (0.75 + 0.25 * ((tohum >> 8) % 100) / 100.0);
+            CizgiCiz(dc, (int)(a.x + cos(aci) * ic),  (int)(a.y + sin(aci) * ic),
+                         (int)(a.x + cos(aci) * dis2), (int)(a.y + sin(aci) * dis2), renk, kal);
+        }
+        break;
+    }
+    case ARAC_BALON: {
+        // Konusma balonu: elips govde + suruklemenin BASLANGICINA bakan
+        // kuyruk. Manga gelenegi: govde her zaman ikincil renkle (beyaz)
+        // doldurulur, cerceve birincil renkle cizilir.
+        HBRUSH fb = CreateSolidBrush(g.renk2);
+        HBRUSH eski2 = (HBRUSH)SelectObject(dc, fb);
+        Ellipse(dc, r.left, r.top, r.right, r.bottom);
+        double cx = (r.left + r.right) / 2.0, cy = (r.top + r.bottom) / 2.0;
+        double rx = (r.right - r.left) / 2.0, ry = (r.bottom - r.top) / 2.0;
+        double ux = a.x - cx, uy = a.y - cy;
+        double ul = sqrt(ux * ux + uy * uy);
+        if (ul > 4 && rx > 10 && ry > 10) {
+            ux /= ul; uy /= ul;
+            double nx2 = -uy, ny2 = ux;
+            double bx = cx + ux * rx * 0.92, by = cy + uy * ry * 0.92;
+            int ky = 6 + kal * 2;   // kuyruk taban genisligi
+            POINT k[3] = {
+                { (LONG)(bx + nx2 * ky), (LONG)(by + ny2 * ky) },
+                { (LONG)a.x, (LONG)a.y },
+                { (LONG)(bx - nx2 * ky), (LONG)(by - ny2 * ky) }
+            };
+            Polygon(dc, k, 3);
+        }
+        SelectObject(dc, eski2);
+        DeleteObject(fb);
+        break;
+    }
+    case ARAC_PANEL: {
+        // Cizgi roman paneli: ici ikincil renkle (beyaz) silinen ve
+        // kalin cerceveli kare. Alttaki cizimi kapatir, kare duzenini kurar.
+        HBRUSH fb = CreateSolidBrush(g.renk2);
+        HBRUSH eski2 = (HBRUSH)SelectObject(dc, fb);
+        Rectangle(dc, r.left, r.top, r.right, r.bottom);
+        SelectObject(dc, eski2);
+        DeleteObject(fb);
+        HPEN kp2 = CreatePen(PS_SOLID, kal + 2, renk);
+        HPEN eskiK2 = (HPEN)SelectObject(dc, kp2);
+        HBRUSH bos = (HBRUSH)GetStockObject(NULL_BRUSH);
+        HBRUSH eskiB = (HBRUSH)SelectObject(dc, bos);
+        Rectangle(dc, r.left, r.top, r.right, r.bottom);
+        SelectObject(dc, eskiB);
+        SelectObject(dc, eskiK2);
+        DeleteObject(kp2);
+        break;
+    }
     default: break;
     }
     SelectObject(dc, eskiF);
@@ -3040,6 +3240,7 @@ static void EfektUygula(int idx)
     if (!buf) return;
     int w = g.tuvalW, h = g.tuvalH;
     GecmisPush();
+    bool uygulandi = true;   // ara bellek ayrilamazsa false: bos kayit atilir
 
     switch (idx) {
     case 0: // Gri tonlama
@@ -3063,7 +3264,7 @@ static void EfektUygula(int idx)
         break;
     case 3: { // Bulaniklastir (3x3 kutu bulanikligi)
         BYTE* kopya = (BYTE*)malloc((size_t)w * h * 4);
-        if (!kopya) break;
+        if (!kopya) { uygulandi = false; break; }
         memcpy(kopya, buf, (size_t)w * h * 4);
         for (int y = 1; y < h - 1; y++)
             for (int x = 1; x < w - 1; x++) {
@@ -3081,7 +3282,7 @@ static void EfektUygula(int idx)
     }
     case 4: { // Keskinlestir
         BYTE* kopya = (BYTE*)malloc((size_t)w * h * 4);
-        if (!kopya) break;
+        if (!kopya) { uygulandi = false; break; }
         memcpy(kopya, buf, (size_t)w * h * 4);
         for (int y = 1; y < h - 1; y++)
             for (int x = 1; x < w - 1; x++) {
@@ -3125,7 +3326,7 @@ static void EfektUygula(int idx)
     case 8:   // Kabartma (emboss)
     case 9: { // Kenar bulma
         BYTE* kopya = (BYTE*)malloc((size_t)w * h * 4);
-        if (!kopya) break;
+        if (!kopya) { uygulandi = false; break; }
         memcpy(kopya, buf, (size_t)w * h * 4);
         for (int y = 1; y < h - 1; y++)
             for (int x = 1; x < w - 1; x++) {
@@ -3178,7 +3379,7 @@ static void EfektUygula(int idx)
     case 16: { // Gauss bulanikligi (5x5, ayrik iki gecis)
         const int k[5] = {1, 4, 6, 4, 1};
         BYTE* t1 = (BYTE*)malloc((size_t)w * h * 4);
-        if (!t1) break;
+        if (!t1) { uygulandi = false; break; }
         for (int y = 0; y < h; y++)          // yatay gecis
             for (int x = 0; x < w; x++)
                 for (int c = 0; c < 3; c++) {
@@ -3208,7 +3409,7 @@ static void EfektUygula(int idx)
     }
     case 17: { // Yagli boya efekti (en sik parlaklik kumesi)
         BYTE* kopya = (BYTE*)malloc((size_t)w * h * 4);
-        if (!kopya) break;
+        if (!kopya) { uygulandi = false; break; }
         memcpy(kopya, buf, (size_t)w * h * 4);
         const int R = 2, SEVIYE = 16;
         for (int y = 0; y < h; y++)
@@ -3248,6 +3449,11 @@ static void EfektUygula(int idx)
         }
         break;
     }
+    if (!uygulandi) {   // hicbir piksel degismedi: bos gecmis kaydini at
+        GecmisPop();
+        free(buf);
+        return;
+    }
     TuvalPikselYaz(buf);
     g.degisti = true;
     InvalidateRect(g.pencere, NULL, FALSE);
@@ -3271,7 +3477,14 @@ static void Dondur90(bool saatYonu)
             memcpy(hedef + ((size_t)ny * h + nx) * 4, kaynak + ((size_t)y * w + x) * 4, 4);
         }
     free(kaynak);
-    TuvalOlustur(h, w, RGB(255, 255, 255));
+    // Boyut degisimi de geri alinabilir: once mevcut durumu gecmise it,
+    // gecmisi koruyarak tuvale yeni boyut ver (eskiden tum gecmis silinirdi)
+    GecmisPush();
+    if (!TuvalOlustur(h, w, RGB(255, 255, 255), true)) {
+        GecmisPop();        // tuval degismedi: bos kaydi geri cikar
+        free(hedef);
+        return;
+    }
     TuvalPikselYaz(hedef);
     g.degisti = true;
     InvalidateRect(g.pencere, NULL, FALSE);
@@ -3292,6 +3505,11 @@ static void Aynala(bool yatay)
             }
     } else {
         BYTE* satir = (BYTE*)malloc((size_t)w * 4);
+        if (!satir) {           // bellek yok: degisiklik yapilmadi, bos kaydi at
+            GecmisPop();
+            free(buf);
+            return;
+        }
         for (int y = 0; y < h / 2; y++) {
             BYTE* s1 = buf + (size_t)y * w * 4;
             BYTE* s2 = buf + (size_t)(h - 1 - y) * w * 4;
@@ -3395,6 +3613,12 @@ static bool BmpYukle(const wchar_t* yol)
     int hh = bi.biHeight;
     bool alttan = hh > 0;
     if (hh < 0) hh = -hh;
+    // Bozuk/kotu niyetli dosyalara karsi sinir: asiri genislikler tamsayi
+    // tasmansi ve bellek tukenmesi yaratirdi (WIC yukleyiciyle ayni sinir)
+    if (w <= 0 || hh <= 0 || w > 8192 || hh > 8192) {
+        CloseHandle(h);
+        return false;
+    }
     int baytRenk = bi.biBitCount / 8;
     int satirBayt = ((w * baytRenk + 3) / 4) * 4;
     BYTE* veri = (BYTE*)malloc((size_t)satirBayt * hh);
@@ -3403,7 +3627,8 @@ static bool BmpYukle(const wchar_t* yol)
     ReadFile(h, veri, (DWORD)((size_t)satirBayt * hh), &okunan, NULL);
     CloseHandle(h);
 
-    TuvalOlustur(w, hh, RGB(255, 255, 255));
+    // Tuval yaratimi basarisiz olursa eski tuvalin ustune yazilmaz
+    if (!TuvalOlustur(w, hh, RGB(255, 255, 255))) { free(veri); return false; }
     BITMAPINFO bilgi = {};
     bilgi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bilgi.bmiHeader.biWidth = w;
@@ -3477,8 +3702,8 @@ static bool WicYukle(const wchar_t* yol)
                                           WICBitmapDitherTypeNone, NULL, 0.0,
                                           WICBitmapPaletteTypeCustom))) {
         buf = (BYTE*)malloc((size_t)w * h * 4);
-        if (buf && SUCCEEDED(donusturucu->CopyPixels(NULL, w * 4, w * h * 4, buf))) {
-            TuvalOlustur(w, h, RGB(255, 255, 255));
+        if (buf && SUCCEEDED(donusturucu->CopyPixels(NULL, w * 4, w * h * 4, buf)) &&
+            TuvalOlustur(w, h, RGB(255, 255, 255))) {   // basarisizsa eski tuvale yazilmaz
             BITMAPINFO bi = {};
             bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
             bi.bmiHeader.biWidth = w;
@@ -4473,6 +4698,15 @@ static void SecimKes()
     HDC ekran = GetDC(NULL);
     g.secimBMP = CreateCompatibleBitmap(ekran, g.secimW, g.secimH);
     g.secimDC  = CreateCompatibleDC(ekran);
+    if (!g.secimBMP || !g.secimDC) {
+        // Bellek yok: yarim kalan tutamaclari temizle, secimi iptal et
+        // (yoksa bos yuzen katman uretilip tuvalde delik acilirdi)
+        if (g.secimBMP) { DeleteObject(g.secimBMP); g.secimBMP = NULL; }
+        if (g.secimDC)  { DeleteDC(g.secimDC);      g.secimDC = NULL; }
+        ReleaseDC(NULL, ekran);
+        SecimSerbest();
+        return;
+    }
     g.secimEski = (HBITMAP)SelectObject(g.secimDC, g.secimBMP);
     BitBlt(g.secimDC, 0, 0, g.secimW, g.secimH, g.tuvalDC, g.secim.left, g.secim.top, SRCCOPY);
     ReleaseDC(NULL, ekran);
@@ -4488,6 +4722,10 @@ static void SecimKes()
 // ------------------------------------------------------------
 static void PanoyaKopyala()
 {
+    // Yuzen (kesilmis/yapistirilmis) secim once tuvale demirlenir; yoksa
+    // kopyalanan goruntu secim icerigi yerine ALTINDAKI bos tuval olurdu
+    // (yuzen icerik secimDC'de durur, BolgeAl tuvalDC'den okur)
+    if (g.secimAktif && g.secimKesildi) SecimUygula();
     RECT kaynak = g.secimAktif ? g.secim : RECT{0, 0, g.tuvalW, g.tuvalH};
     int w = kaynak.right - kaynak.left, h = kaynak.bottom - kaynak.top;
     if (w <= 0 || h <= 0) return;
@@ -4557,6 +4795,16 @@ static void PanodanYapistir()
     HDC ekran = GetDC(NULL);
     g.secimBMP = CreateCompatibleBitmap(ekran, kopyaW, kopyaH);
     g.secimDC  = CreateCompatibleDC(ekran);
+    if (!g.secimBMP || !g.secimDC) {
+        // Bellek yok: yapistirmayi iptal et, bos gecmis kaydini geri cikar
+        if (g.secimBMP) { DeleteObject(g.secimBMP); g.secimBMP = NULL; }
+        if (g.secimDC)  { DeleteDC(g.secimDC);      g.secimDC = NULL; }
+        ReleaseDC(NULL, ekran);
+        GlobalUnlock(bellek);
+        CloseClipboard();
+        GecmisPop();
+        return;
+    }
     g.secimEski = (HBITMAP)SelectObject(g.secimDC, g.secimBMP);
 
     if (kopyaW == w && kopyaH == h) {
@@ -4629,6 +4877,12 @@ static void AyarlariYukle()
     g.tamEkran = GetPrivateProfileIntW(L"ayar", L"tamekran", 1, ini) != 0;
     g.pikselmuk   = GetPrivateProfileIntW(L"ayar", L"pikselmuk", 0, ini) != 0;
     g.paletPiksel = GetPrivateProfileIntW(L"ayar", L"palet", 0, ini) != 0;
+    // Firca sabitleme ve referans saydamligi da kalici (eskiden her
+    // acilista sifirlaniyordu; kullanici tercihi kayboluyordu)
+    g.stabil      = GetPrivateProfileIntW(L"ayar", L"stabil", 0, ini) != 0;
+    g.refOpaklik  = GetPrivateProfileIntW(L"ayar", L"refopaklik", 50, ini);
+    if (g.refOpaklik != 25 && g.refOpaklik != 50 && g.refOpaklik != 75)
+        g.refOpaklik = 50;
     PaletUygula();
 }
 
@@ -4648,6 +4902,8 @@ static void AyarlariKaydet()
     WritePrivateProfileStringW(L"ayar", L"pikselmuk", g.pikselmuk ? L"1" : L"0", ini);
     WritePrivateProfileStringW(L"ayar", L"palet", g.paletPiksel ? L"1" : L"0", ini);
     swprintf(b, 32, L"%u", (unsigned)g.renk2); WritePrivateProfileStringW(L"ayar", L"renk2", b, ini);
+    WritePrivateProfileStringW(L"ayar", L"stabil", g.stabil ? L"1" : L"0", ini);
+    swprintf(b, 32, L"%d", g.refOpaklik); WritePrivateProfileStringW(L"ayar", L"refopaklik", b, ini);
     WritePrivateProfileStringW(L"ayar", L"tamekran",
         (g.pencere && IsZoomed(g.pencere)) ? L"1" : L"0", ini);
 }
@@ -4672,7 +4928,13 @@ static bool KaydetSor(bool farkli)
     // resimde kesilmis bolge bos (delik) olarak kalirdi.
     MetniUygula();
     SecimUygula();
-    if (!farkli && g.dosyaYolu[0]) return DosyaKaydetYol(g.dosyaYolu);
+    if (!farkli && g.dosyaYolu[0]) {
+        if (DosyaKaydetYol(g.dosyaYolu)) return true;
+        // Dogrudan kayit basarisiz oldu (ornegin dosya salt okunur oldu):
+        // eskiden sessizce geciliyordu; kullanici kaydedildigini sanirdi
+        MessageBoxW(g.pencere, T(M_HATA_KAYDET), T(M_HATA_BASLIK), MB_ICONWARNING);
+        return false;
+    }
 
     wchar_t yol[MAX_PATH] = L"resim.png";
     OPENFILENAMEW ofn = {};
@@ -4704,6 +4966,8 @@ static bool KaydetSor(bool farkli)
         wcscpy_s(g.dosyaYolu, yol);
         return true;
     }
+    // Kaydetme basarisiz (izin yok, disk dolu vb.): kullaniciya bildir
+    MessageBoxW(g.pencere, T(M_HATA_KAYDET), T(M_HATA_BASLIK), MB_ICONWARNING);
     return false;
 }
 
@@ -4825,8 +5089,12 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         if (LOWORD(wp) >= MENU_BOYUT_PRE && LOWORD(wp) < MENU_BOYUT_PRE + BOYUT_PRE_SAYISI) {
             MetniUygula(); SecimUygula();
             int i = LOWORD(wp) - MENU_BOYUT_PRE;
-            TuvalOlustur(BOYUT_PRE[i][0], BOYUT_PRE[i][1], RGB(255, 255, 255));
-            g.degisti = true;
+            // Boyut degisimi de geri alinabilir (gecmis korunur)
+            GecmisPush();
+            if (TuvalOlustur(BOYUT_PRE[i][0], BOYUT_PRE[i][1], RGB(255, 255, 255), true))
+                g.degisti = true;
+            else
+                GecmisPop();
             InvalidateRect(hwnd, NULL, FALSE);
             return 0;
         }
@@ -4905,8 +5173,12 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             MetniUygula(); SecimUygula();
             int w = g.tuvalW, h = g.tuvalH;
             if (BoyutDialogu(hwnd, w, h)) {
-                TuvalOlustur(w, h, RGB(255, 255, 255));
-                g.degisti = true;
+                // Boyut degisimi de geri alinabilir (gecmis korunur)
+                GecmisPush();
+                if (TuvalOlustur(w, h, RGB(255, 255, 255), true))
+                    g.degisti = true;
+                else
+                    GecmisPop();
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;
@@ -4951,7 +5223,9 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             ofn.hwndOwner   = hwnd;
             ofn.lpstrFile   = yol;
             ofn.nMaxFile    = MAX_PATH;
-            ofn.lpstrFilter = L"Resim (*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif)\0*.bmp;*.png;*.jpg;*.jpeg;*.gif;*.tif\0";
+            // Ana dosya filtresiyle ayni (cevirili ve tum turleri icerir);
+            // eskiden burada Turkce'ye sabitlenmis ayri bir suzgec vardi
+            ofn.lpstrFilter = T(M_FILTRE);
             if (GetOpenFileNameW(&ofn)) {
                 if (!ReferansYukle(yol))
                     MessageBoxW(hwnd, T(M_HATA_ACMA), T(M_HATA_BASLIK), MB_ICONWARNING);
@@ -4995,8 +5269,11 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
         if (ctrl) {
             switch (wp) {
-            case 'Z': GeriAl(); return 0;
-            case 'Y': Yinele(); return 0;
+            // Menu yolundakiyle ayni hazirlik: acik metin ve yuzen secim
+            // once uygulanir; yoksa boyut degisimi geri alinirken secim
+            // koordinatlari eski boyutta kalip gecersizlesirdi
+            case 'Z': MetniUygula(); SecimUygula(); GeriAl(); return 0;
+            case 'Y': MetniUygula(); SecimUygula(); Yinele(); return 0;
             case 'S': if (KaydetSor(false)) g.degisti = false; return 0;
             case 'O': SendMessageW(hwnd, WM_COMMAND, MENU_AC, 0); return 0;
             case 'N': SendMessageW(hwnd, WM_COMMAND, MENU_YENI, 0); return 0;
@@ -5141,7 +5418,8 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             g.arac == ARAC_DOLGU || g.arac == ARAC_BULANIK || g.arac == ARAC_SULUBOYA ||
             g.arac == ARAC_ISLAK || g.arac == ARAC_YAGLIFIRCA || g.arac == ARAC_KARAKALEM ||
             g.arac == ARAC_KALIGRAFI || g.arac == ARAC_SERIT || g.arac == ARAC_NEON ||
-            g.arac == ARAC_GOLGE || g.arac == ARAC_DITHER;
+            g.arac == ARAC_GOLGE || g.arac == ARAC_DITHER ||
+            g.arac == ARAC_GPEN || g.arac == ARAC_TON;
         if (!sagCizer) return 0;
         // Sol tusla devam eden bir vurus/secim sirasinda sag tusu yoksay;
         // aksi halde iki vurus ayni g.onceki uzerinden ic ice gecer ve
@@ -5186,6 +5464,12 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         else if (g.arac == ARAC_NEON) NeonVurus(cx, cy, cx, cy, g.renk2);
         else if (g.arac == ARAC_GOLGE) GolgeVurus(cx, cy, cx, cy, g.renk2);
         else if (g.arac == ARAC_DITHER) DitherVurus(cx, cy, cx, cy, g.renk2, g.renk);
+        else if (g.arac == ARAC_GPEN) {
+            g.gpenKal = g.kalinlik;
+            g.gpenTick = GetTickCount();
+            GPenVurus(cx, cy, cx, cy, g.renk2);
+        }
+        else if (g.arac == ARAC_TON) TonDamga(cx, cy, g.renk2);
         g.degisti = true;
         InvalidateRect(hwnd, NULL, FALSE);
         return 0;
@@ -5417,6 +5701,12 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             GolgeVurus(cx, cy, cx, cy, g.renk);
         } else if (g.arac == ARAC_DITHER) {
             DitherVurus(cx, cy, cx, cy, g.renk, g.renk2);
+        } else if (g.arac == ARAC_GPEN) {
+            g.gpenKal = g.kalinlik;
+            g.gpenTick = GetTickCount();
+            GPenVurus(cx, cy, cx, cy, g.renk);
+        } else if (g.arac == ARAC_TON) {
+            TonDamga(cx, cy, g.renk);
         }
         g.degisti = true;
         InvalidateRect(hwnd, NULL, FALSE);
@@ -5506,6 +5796,12 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             } else if (g.arac == ARAC_DITHER) {
                 DitherVurus(g.onceki.x, g.onceki.y, cx, cy, g.renk2, g.renk);
                 g.onceki.x = cx; g.onceki.y = cy;
+            } else if (g.arac == ARAC_GPEN) {
+                GPenVurus(g.onceki.x, g.onceki.y, cx, cy, g.renk2);
+                g.onceki.x = cx; g.onceki.y = cy;
+            } else if (g.arac == ARAC_TON) {
+                TonVurus(g.onceki.x, g.onceki.y, cx, cy, g.renk2);
+                g.onceki.x = cx; g.onceki.y = cy;
             }
             InvalidateRect(hwnd, NULL, FALSE);
             return 0;
@@ -5558,6 +5854,12 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                 g.onceki.x = cx; g.onceki.y = cy;
             } else if (g.arac == ARAC_DITHER) {
                 DitherVurus(g.onceki.x, g.onceki.y, cx, cy, g.renk, g.renk2);
+                g.onceki.x = cx; g.onceki.y = cy;
+            } else if (g.arac == ARAC_GPEN) {
+                GPenVurus(g.onceki.x, g.onceki.y, cx, cy, g.renk);
+                g.onceki.x = cx; g.onceki.y = cy;
+            } else if (g.arac == ARAC_TON) {
+                TonVurus(g.onceki.x, g.onceki.y, cx, cy, g.renk);
                 g.onceki.x = cx; g.onceki.y = cy;
             }
             InvalidateRect(hwnd, NULL, FALSE);
@@ -5637,7 +5939,14 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         if (rc.right != g_tamponW || rc.bottom != g_tamponH) {
             TamponSerbest();
             g_tamponDC = CreateCompatibleDC(dc);
-            g_tamponBMP = CreateCompatibleBitmap(dc, rc.right, rc.bottom);
+            g_tamponBMP = g_tamponDC ? CreateCompatibleBitmap(dc, rc.right, rc.bottom) : NULL;
+            if (!g_tamponDC || !g_tamponBMP) {
+                // Bellek baskisi altinda tampon yaratilamazsa cizimi atla;
+                // yoksa NULL DC'ye yapilan cagri zinciri cokerdi
+                TamponSerbest();
+                EndPaint(hwnd, &ps);
+                return 0;
+            }
             g_tamponEski = (HBITMAP)SelectObject(g_tamponDC, g_tamponBMP);
             g_tamponW = rc.right; g_tamponH = rc.bottom;
         }
@@ -5659,9 +5968,18 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             if (g.tuvalW != g_onW || g.tuvalH != g_onH) {   // onizleme tamponu da onbellekli
                 OnizlemeSerbest();
                 g_onDC = CreateCompatibleDC(dc);
-                g_onBMP = CreateCompatibleBitmap(dc, g.tuvalW, g.tuvalH);
-                g_onEski = (HBITMAP)SelectObject(g_onDC, g_onBMP);
-                g_onW = g.tuvalW; g_onH = g.tuvalH;
+                g_onBMP = g_onDC ? CreateCompatibleBitmap(dc, g.tuvalW, g.tuvalH) : NULL;
+                if (!g_onDC || !g_onBMP) {
+                    // Onizleme tamponsuz da yasanir: sekil cizilmeden tuval gosterilir
+                    OnizlemeSerbest();
+                } else {
+                    g_onEski = (HBITMAP)SelectObject(g_onDC, g_onBMP);
+                    g_onW = g.tuvalW; g_onH = g.tuvalH;
+                }
+            }
+            if (!g_onDC) {   // tampon yoksa onizlemeyi atla (cokme olmaz)
+                onizlemeGerek = false;
+                goto onizlemeAtla;
             }
             POINT im; GetCursorPos(&im); ScreenToClient(hwnd, &im);
             int icx, icy; Ekran2Tuval(im.x, im.y, icx, icy);
@@ -5672,6 +5990,7 @@ static LRESULT CALLBACK PencereProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                 SekilCiz(g_onDC, g.arac, g.baslangic, POINT{icx, icy}, g.renk, g.kalinlik, g.dolu);
             kaynak = g_onDC;
         }
+    onizlemeAtla:;
 
         SetStretchBltMode(tampon, HALFTONE);
         POINT org; SetBrushOrgEx(tampon, 0, 0, &org);

@@ -10,7 +10,8 @@ A fully custom paint program written **from scratch in pure C++ / Win32** — no
 
 ### Features
 
-- **31 drawing tools**: brush, pencil, airbrush, eraser, shapes, text, selection, and more
+- **36 drawing tools**: brush, pencil, airbrush, eraser, shapes, text, selection, and more
+- **Manga / anime tools**: G-pen (speed-sensitive inking), screentone halftone dots, radial speed lines, speech bubbles and panel frames
 - **Paint simulations**: watercolor, oil paint, wet canvas blending and other realistic media behaviors
 - **Pixel-art mode**: dedicated palette, perfect-pixel line cleanup, pixel-perfect drawing aids
 - **29 languages**: full UI translation, defaults to English, switchable anytime from the menu
@@ -37,7 +38,7 @@ No dependencies to install — everything links statically against the Windows A
 
 | File | Description |
 |------|-------------|
-| `paint.cpp` | The entire program (single translation unit, ~5800 lines) |
+| `paint.cpp` | The entire program (single translation unit, ~6200 lines) |
 | `kaynak.rc` | Resource script: app icon + embedded source code |
 | `ikon.ico` | Application icon |
 
@@ -55,7 +56,8 @@ A ready-to-run `minipaint.exe` is attached to the [Releases](../../releases) pag
 
 ### Özellikler
 
-- **31 çizim aracı**: fırça, kalem, airbrush, silgi, şekiller, metin, seçim ve dahası
+- **36 çizim aracı**: fırça, kalem, airbrush, silgi, şekiller, metin, seçim ve dahası
+- **Manga / anime araçları**: G-pen (hıza duyarlı mürekkepleme), ton (screentone) nokta deseni, radyal hız çizgileri, konuşma balonları ve panel çerçeveleri
 - **Boya simülasyonları**: sulu boya, yağlı boya, ıslak tuval karışımı ve diğer gerçekçi ortam davranışları
 - **Pixel-art modu**: özel palet, mükemmel-piksel çizgi temizliği, piksel hassasiyetinde çizim yardımcıları
 - **29 dil**: tam arayüz çevirisi, varsayılan İngilizce, menüden istenildiği zaman değiştirilebilir
@@ -82,7 +84,7 @@ Kurulacak bağımlılık yok — her şey Windows API'sine statik olarak bağlan
 
 | Dosya | Açıklama |
 |------|-------------|
-| `paint.cpp` | Programın tamamı (tek derleme birimi, ~5800 satır) |
+| `paint.cpp` | Programın tamamı (tek derleme birimi, ~6200 satır) |
 | `kaynak.rc` | Kaynak betiği: uygulama simgesi + gömülü kaynak kodu |
 | `ikon.ico` | Uygulama simgesi |
 
